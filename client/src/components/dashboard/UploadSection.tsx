@@ -45,13 +45,11 @@ export default function UploadSection() {
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       // Use fetch directly to properly handle FormData with files
-      const token = localStorage.getItem('auth-token');
       const response = await fetch("/api/bank-statements/upload", {
         method: "POST",
         body: formData,
         credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
           ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {})
         }
       });
