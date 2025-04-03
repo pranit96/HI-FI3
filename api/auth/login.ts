@@ -46,9 +46,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     // Remove password from response
     const { password: _, ...safeUserData } = user;
 
-    // Generate JWT token
+    // Generate JWT token with consistent payload
     const token = jwt.sign(
-      { id: user.id },
+      { id: user.id }, // Matches frontend expected structure
       JWT_SECRET,
       { expiresIn: '7d' }
     );

@@ -15,8 +15,8 @@ export interface AuthenticatedRequest extends NextApiRequest {
 
 const verifyToken = async (token: string): Promise<User | null> => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number }; // Match token payload
-    const user = await storage.getUser(decoded.userId); // Use correct property name
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: number }; // Match frontend payload
+    const user = await storage.getUser(decoded.id);
     return user || null;
   } catch (error) {
     console.error('Token verification failed:', error);
@@ -24,24 +24,18 @@ const verifyToken = async (token: string): Promise<User | null> => {
   }
 };
 
-// Update header extraction to be case-insensitive
 const getTokenFromRequest = (req: NextApiRequest): string | null => {
-  const headers = req.headers;
-  
-  // Check Authorization header (case-insensitive)
-  const authHeader = headers.authorization || headers.Authorization;
-  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+  // Standardize header checks
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
     return authHeader.split(' ')[1];
   }
-
-  // Check all case variations for auth-token
-  const authTokenKey = Object.keys(headers).find(k => k.toLowerCase() === 'auth-token');
-  if (authTokenKey) {
-    const token = headers[authTokenKey];
+  
+  const token = req.headers['auth-token'];
+  if (token) {
     return Array.isArray(token) ? token[0] : token;
   }
 
-  // Check cookies
   return req.cookies?.token || null;
 };
 

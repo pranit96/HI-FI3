@@ -44,8 +44,7 @@ export function useAuth() {
 
         const response = await fetch("/api/auth/me", {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'auth-token': token
+            'Authorization': `Bearer ${token}`
           },
           credentials: "include"
         });
