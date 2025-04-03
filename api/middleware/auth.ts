@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { storage } from '../storage';
 
 // JWT secret from environment variable
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-for-development-only';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Extended request with user property and multer fields
 export interface AuthenticatedRequest extends NextApiRequest {
