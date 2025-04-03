@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finvue - Your Financial Journey</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #0A0A0A;
+            --secondary: #242424;
+            --accent: #4CAF50;
+            --text: #FFFFFF;
+            --text-secondary: #B0B0B0;
+            --success: #4CAF50;
+            --danger: #FF5252;
+            --card-bg: #1E1E1E;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        
+        body {
+            background-color: var(--primary);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+        
+        .container {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        /* Intro Screen */
+        .intro-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 1s ease;
+        }
+        
+        .grain-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        
+        .intro-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            max-width: 800px;
+        }
+        
+        .intro-content h1 {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            letter-spacing: -1px;
+            line-height: 1.1;
+        }
+        
+        .intro-content p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .intro-grains {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .grain {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            opacity: 0.5;
+            transform: translate(-50%, -50%);
+        }
+        
+        .cta-button {
+            background-color: var(--accent);
+            color: #000000;
+            border: none;
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+        }
+        
+        /* Dashboard */
+        .dashboard {
+            width: 100%;
+            max-width: 1200px;
+            opacity: 0;
+            transition: opacity 1s ease;
+            display: none;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        
+        .logo span {
+            color: var(--accent);
+        }
+        
+        .nav {
+            display: flex;
+            gap: 2rem;
+        }
+        
+        .nav-item {
+            cursor: pointer;
+            font-weight: 500;
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-item.active {
+            color: var(--accent);
+        }
+        
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--accent);
+        }
+        
+        .nav-item:hover {
+            color: var(--accent);
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+        
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .panel-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .panel-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .balance-card {
+            width: 100%;
+            background: linear-gradient(90deg, #0A0A0A 0%, #242424 100%);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid #2A2A2A;
+        }
+        
+        .balance-title {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .balance-amount {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        
+        .balance-change {
+            font-size: 0.9rem;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .balance-actions {
+            display: flex;
+            margin-top: 1.5rem;
+            gap: 1rem;
+        }
+        
+        .action-button {
+            background-color: var(--secondary);
+            border: none;
+            border-radius: 12px;
+            padding: 0.8rem 1.2rem;
+            color: var(--text);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .action-button:hover {
+            background-color: #333333;
+        }
+        
+        .col-6 {
+            width: calc(50% - 0.75rem);
+        }
+        
+        .col-4 {
+            width: calc(33.33% - 1rem);
+        }
+        
+        .transaction-list {
+            list-style: none;
+        }
+        
+        .transaction-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 1rem 0;
+            border-bottom: 1px solid #2A2A2A;
+        }
+        
+        .transaction-item:last-child {
+            border-bottom: none;
+        }
+        
+        .transaction-info {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .transaction-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background-color: var(--secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .transaction-details h4 {
+            font-weight: 500;
+            margin-bottom: 0.2rem;
+        }
+        
+        .transaction-details p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        .transaction-amount {
+            font-weight: 600;
+        }
+        
+        .income {
+            color: var(--success);
+        }
+        
+        .expense {
+            color: var(--danger);
+        }
+        
+        .chart-container {
+            height: 200px;
+            width: 100%;
+            margin-top: 1rem;
+            position: relative;
+        }
+        
+        .chart-bar {
+            position: absolute;
+            bottom: 0;
+            width: 12px;
+            border-radius: 4px 4px 0 0;
+            background-color: var(--accent);
+            transition: height 1s ease;
+        }
+        
+        .chart-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+        }
+        
+        .chart-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: center;
+            width: 12px;
+        }
+        
+        .goals-list {
+            list-style: none;
+        }
+        
+        .goal-item {
+            margin-bottom: 1.5rem;
+        }
+        
+        .goal-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .goal-title {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        
+        .goal-title h4 {
+            font-weight: 500;
+        }
+        
+        .goal-progress {
+            width: 100%;
+            height: 6px;
+            background-color: var(--secondary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        
+        .goal-bar {
+            height: 100%;
+            border-radius: 3px;
+            background-color: var(--accent);
+        }
+        
+        .goal-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Content Screens */
+        .content-screen {
+            width: 100%;
+            max-width: 1200px;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        
+        @media (max-width: 768px) {
+            .col-6, .col-4 {
+                width: 100%;
+            }
+            
+            .intro-content h1 {
+                font-size: 2.5rem;
+            }
+            
+            .nav {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Intro Screen -->
+    <div class="intro-screen" id="introScreen">
+        <div class="grain-overlay"></div>
+        <div class="intro-grains" id="introGrains"></div>
+        <div class="intro-content">
+            <h1>Your Financial Journey <br>Starts Here</h1>
+            <p>Gain control of your finances with powerful tools, personalized insights, and a modern approach to money management.</p>
+            <button class="cta-button" id="startJourney">Get Started</button>
+        </div>
+    </div>
+    
+    <!-- Dashboard Screen -->
+    <div class="content-screen" id="dashboardScreen">
+        <div class="header">
+            <div class="logo">Fin<span>vue</span></div>
+            <div class="nav">
+                <div class="nav-item active" data-screen="dashboard">Dashboard</div>
+                <div class="nav-item" data-screen="insights">Insights</div>
+                <div class="nav-item" data-screen="profile">Profile</div>
+            </div>
+            <div class="user-profile">
+                <div class="user-avatar">JD</div>
+            </div>
+        </div>
+        
+        <div class="balance-card">
+            <div class="balance-title">Total Balance</div>
+            <div class="balance-amount">$24,542.65</div>
+            <div class="balance-change">
+                <i class="fas fa-arrow-up"></i>
+                <span>8.2% from last month</span>
+            </div>
+            <div class="balance-actions">
+                <button class="action-button">
+                    <i class="fas fa-plus"></i>
+                    <span>Add Funds</span>
+                </button>
+                <button class="action-button">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Transfer</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="panel col-6">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title">Recent Transactions</div>
+                        <div class="panel-subtitle">Last 30 days</div>
+                    </div>
+                    <div class="panel-subtitle">View All</div>
+                </div>
+                <ul class="transaction-list">
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-shopping-bag"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Amazon</h4>
+                                <p>April 2, 2025</p>
+                            </div>
+                        </div>
+                        <div class="transaction-amount expense">-$84.99</div>
+                    </li>
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-utensils"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Starbucks</h4>
+                                <p>April 1, 2025</p>
+                            </div>
+                        </div>
+                        <div class="transaction-amount expense">-$5.40</div>
+                    </li>
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-building"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Salary</h4>
+                                <p>April 1, 2025</p>
+                            </div>
+                        </div>
+                        <div class="transaction-amount income">+$4,500.00</div>
+                    </li>
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-home"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Rent</h4>
+                                <p>March 31, 2025</p>
+                            </div>
+                        </div>
+                        <div class="transaction-amount expense">-$1,800.00</div>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="panel col-6">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title">Spending Overview</div>
+                        <div class="panel-subtitle">Last 7 days</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container" id="spendingChart">
+                    <!-- Chart bars will be added by JS -->
+                </div>
+                <div class="chart-labels">
+                    <!-- Chart labels will be added by JS -->
+                </div>
+            </div>
+            
+            <div class="panel col-4">
+                <div class="panel-header">
+                    <div class="panel-title">Upcoming Bills</div>
+                </div>
+                <ul class="transaction-list">
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Electricity</h4>
+                                <p>Due in 3 days</p>
+                            </div>
+                        </div>
+                        <div class="transaction-amount">$142.50</div>
+                    </li>
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-wifi"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Internet</h4>
+                                <p>Due in 5 days</p>
+                            </div>
+                        </div>
+                        <div class="transaction-amount">$65.00</div>
+                    </li>
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-credit-card"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Credit Card</h4>
+                                <p>Due in 10 days</p>
+                            </div>
+                        </div>
+                        <div class="transaction-amount">$320.75</div>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="panel col-4">
+                <div class="panel-header">
+                    <div class="panel-title">Financial Goals</div>
+                </div>
+                <ul class="goals-list">
+                    <li class="goal-item">
+                        <div class="goal-title">
+                            <h4>New Car</h4>
+                            <span>65%</span>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="goal-bar" style="width: 65%"></div>
+                        </div>
+                        <div class="goal-details">
+                            <span>$13,000 saved</span>
+                            <span>$20,000 goal</span>
+                        </div>
+                    </li>
+                    <li class="goal-item">
+                        <div class="goal-title">
+                            <h4>Vacation</h4>
+                            <span>40%</span>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="goal-bar" style="width: 40%"></div>
+                        </div>
+                        <div class="goal-details">
+                            <span>$2,000 saved</span>
+                            <span>$5,000 goal</span>
+                        </div>
+                    </li>
+                    <li class="goal-item">
+                        <div class="goal-title">
+                            <h4>Emergency Fund</h4>
+                            <span>85%</span>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="goal-bar" style="width: 85%"></div>
+                        </div>
+                        <div class="goal-details">
+                            <span>$8,500 saved</span>
+                            <span>$10,000 goal</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="panel col-4">
+                <div class="panel-header">
+                    <div class="panel-title">Top Categories</div>
+                </div>
+                <ul class="transaction-list">
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-home"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Housing</h4>
+                                <p>35% of spending</p>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-utensils"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Food & Dining</h4>
+                                <p>20% of spending</p>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-icon">
+                                <i class="fas fa-car"></i>
+                            </div>
+                            <div class="transaction-details">
+                                <h4>Transportation</h4>
+                                <p>15% of spending</p>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Insights Screen -->
+    <div class="content-screen" id="insightsScreen">
+        <div class="header">
+            <div class="logo">Fin<span>vue</span></div>
+            <div class="nav">
+                <div class="nav-item" data-screen="dashboard">Dashboard</div>
+                <div class="nav-item active" data-screen="insights">Insights</div>
+                <div class="nav-item" data-screen="profile">Profile</div>
+            </div>
+            <div class="user-profile">
+                <div class="user-avatar">JD</div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Financial Insights</div>
+            </div>
+            <p>Your personalized financial insights and recommendations will appear here.</p>
+            <p style="margin-top: 1rem;">This screen is currently under development.</p>
+        </div>
+    </div>
+    
+    <!-- Profile Screen -->
+    <div class="content-screen" id="profileScreen">
+        <div class="header">
+            <div class="logo">Fin<span>vue</span></div>
+            <div class="nav">
+                <div class="nav-item" data-screen="dashboard">Dashboard</div>
+                <div class="nav-item" data-screen="insights">Insights</div>
+                <div class="nav-item active" data-screen="profile">Profile</div>
+            </div>
+            <div class="user-profile">
+                <div class="user-avatar">JD</div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Your Profile</div>
+            </div>
+            <p>Your profile information and settings will appear here.</p>
+            <p style="margin-top: 1rem;">This screen is currently under development.</p>
+        </div>
+    </div>
+    
+    <script>
+        // Create animated grains
+        const grains = 100;
+        const grainsContainer = document.getElementById('introGrains');
+        
+        for (let i = 0; i < grains; i++) {
+            const grain = document.createElement('div');
+            grain.classList.add('grain');
+            
+            const size = Math.random() * 6 + 2;
+            grain.style.width = size + 'px';
+            grain.style.height = size + 'px';
+            
+            const x = Math.random() * 100;
+            const y = Math.random() * 100;
+            grain.style.left = x + '%';
+            grain.style.top = y + '%';
+            
+            grain.style.opacity = Math.random() * 0.5 + 0.1;
+            
+            grainsContainer.appendChild(grain);
+            
+            // Animation
+            setInterval(() => {
+                const newX = x + (Math.random() * 2 - 1) * 5;
+                const newY = y + (Math.random() * 2 - 1) * 5;
+                grain.style.left = newX + '%';
+                grain.style.top = newY + '%';
+            }, 3000);
+        }
+        
+        // Intro screen transition
+        document.getElementById('startJourney').addEventListener('click', () => {
+            const introScreen = document.getElementById('introScreen');
+            const dashboardScreen = document.getElementById('dashboardScreen');
+            
+            introScreen.style.opacity = '0';
+            setTimeout(() => {
+                introScreen.style.display = 'none';
+                dashboardScreen.style.display = 'block';
+                setTimeout(() => {
+                    dashboardScreen.style.opacity = '1';
+                    initCharts();
+                }, 100);
+            }, 1000);
+        });
+        
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const targetScreen = item.getAttribute('data-screen');
+                
+                // Deactivate all nav items
+                document.querySelectorAll('.nav-item').forEach(navItem => {
+                    navItem.classList.remove('active');
+                });
+                
+                // Activate clicked nav item
+                item.classList.add('active');
+                
+                // Hide all screens
+                document.querySelectorAll('.content-screen').forEach(screen => {
+                    screen.style.opacity = '0';
+                    setTimeout(() => {
+                        screen.style.display = 'none';
+                    }, 500);
+                });
+                
+                // Show target screen
+                setTimeout(() => {
+                    document.getElementById(targetScreen + 'Screen').style.display = 'block';
+                    setTimeout(() => {
+                        document.getElementById(targetScreen + 'Screen').style.opacity = '1';
+                        if (targetScreen === 'dashboard') {
+                            initCharts();
+                        }
+                    }, 100);
+                }, 500);
+            });
+        });
+        
+        // Initialize charts
+        function initCharts() {
+            const spendingChart = document.getElementById('spendingChart');
+            spendingChart.innerHTML = '';
+            
+            const chartLabelsContainer = document.querySelector('.chart-labels');
+            chartLabelsContainer.innerHTML = '';
+            
+            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const values = [65, 40, 85, 30, 55, 95, 70];
+            
+            const chartWidth = spendingChart.offsetWidth;
+            const barWidth = Math.min(25, (chartWidth / days.length) - 10);
+            const spacing = (chartWidth - (barWidth * days.length)) / (days.length - 1);
+            
+            days.forEach((day, index) => {
+                const bar = document.createElement('div');
+                bar.classList.add('chart-bar');
+                bar.style.left = (index * (barWidth + spacing)) + 'px';
+                bar.style.width = barWidth + 'px';
+                bar.style.height = '0';
+                
+                setTimeout(() => {
+                    bar.style.height = (values[index] / 100) * 200 + 'px';
+                }, 100 + (index * 100));
+                
+                spendingChart.appendChild(bar);
+                
+                const label = document.createElement('div');
+                label.classList.add('chart-label');
+                label.textContent = day;
+                label.style.marginLeft = (index * (barWidth + spacing)) + 'px';
+                label.style.width = barWidth + 'px';
+                
+                chartLabelsContainer.appendChild(label);
+            });
+        }
+    </script>
+</body>
+</html>

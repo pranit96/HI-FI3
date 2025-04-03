@@ -1,13 +1,252 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 @layer base {
+  :root {
+    --primary: #4CAF50;
+    --secondary: #242424;
+    --background: #0A0A0A;
+    --card-bg: #1E1E1E;
+    --text: #FFFFFF;
+    --text-secondary: #B0B0B0;
+    --success: #4CAF50;
+    --danger: #FF5252;
+    --accent: #4CAF50;
+  }
+
   * {
     @apply border-border;
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased text-foreground;
+    background-color: var(--background);
+    color: var(--text);
+    font-family: 'Plus Jakarta Sans', sans-serif;
   }
+
+  /* Grain Overlay Effect */
+  .grain-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 999;
+  }
+}
+
+@layer components {
+  /* Custom Animation Classes */
+  .appear-animation {
+    animation: appear 0.5s ease forwards;
+  }
+
+  .fade-up {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeUp 0.6s ease forwards;
+  }
+
+  .delayed-fade-up {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeUp 0.6s ease forwards 0.2s;
+  }
+  
+  /* Neural Network Animation Effect */
+  .neural-network {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .neural-network::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background-image: 
+      radial-gradient(circle at 30% 40%, rgba(76, 175, 80, 0.1) 0%, rgba(0, 0, 0, 0) 20%),
+      radial-gradient(circle at 70% 60%, rgba(76, 175, 80, 0.1) 0%, rgba(0, 0, 0, 0) 20%),
+      radial-gradient(circle at 50% 50%, rgba(76, 175, 80, 0.05) 0%, rgba(0, 0, 0, 0) 40%);
+    animation: neuralPulse 15s infinite linear;
+    pointer-events: none;
+  }
+  
+  /* Floating Element Animation */
+  .floating {
+    animation: floating 6s ease-in-out infinite;
+    transform-origin: center center;
+  }
+  
+  .floating-delayed {
+    animation: floating 7s ease-in-out 0.5s infinite;
+  }
+  
+  /* Pulse Effect */
+  .pulse-effect {
+    animation: pulse 2s infinite;
+  }
+
+  /* Interactive Elements */
+  .cta-button {
+    @apply bg-primary text-black font-semibold py-4 px-8 rounded-full transform transition-all duration-300 uppercase tracking-wider text-sm;
+  }
+
+  .cta-button:hover {
+    @apply -translate-y-1 shadow-lg;
+    box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+  }
+
+  /* Cards */
+  .card {
+    @apply rounded-2xl p-6 shadow-md border border-[#2A2A2A] backdrop-blur-sm;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    background-color: var(--card-bg);
+  }
+
+  .card:hover {
+    @apply shadow-lg;
+    transform: translateY(-2px);
+  }
+
+  /* Balance Card with Gradient */
+  .balance-card {
+    @apply w-full rounded-2xl p-8 mb-6 shadow-xl border border-[#2A2A2A];
+    background: linear-gradient(90deg, #0A0A0A 0%, #242424 100%);
+  }
+
+  /* Animated Particles */
+  .particle {
+    @apply absolute rounded-full opacity-50;
+    background-color: var(--accent);
+    transition: all 0.6s ease;
+  }
+
+  /* Intro Animation */
+  .intro-animation {
+    animation: introScale 0.8s ease-out forwards;
+  }
+
+  .intro-text {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: introText 0.8s ease-out forwards 0.3s;
+  }
+
+  .intro-button {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: introText 0.8s ease-out forwards 0.5s;
+  }
+}
+
+/* Keyframe Animations */
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes introScale {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes introText {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* New Keyframe Animations */
+@keyframes neuralPulse {
+  0% {
+    transform: translate(-10%, -10%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-10%, -10%) rotate(360deg);
+  }
+}
+
+@keyframes floating {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Hover Effects */
+.interactive-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.interactive-hover::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.interactive-hover:hover::after {
+  opacity: 1;
 }

@@ -1,11 +1,8 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { neon } from "@neondatabase/serverless";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-
-if (!DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is not defined");
-}
+// Use the provided Neon PostgreSQL connection string
+const DATABASE_URL = 'postgresql://neondb_owner:npg_wTyDtal1AW9O@ep-small-recipe-a1i3jwdv-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require';
 
 // Create connection
 const sql = neon(DATABASE_URL);
