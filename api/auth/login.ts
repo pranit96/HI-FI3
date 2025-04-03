@@ -56,7 +56,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     // Set auth token in cookie
     res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Strict`);
     
-    // Return user and token
+    // Return user and token silently
     return res.status(200).json({
       message: 'Login successful',
       user: safeUserData,
