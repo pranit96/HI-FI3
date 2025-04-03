@@ -23,6 +23,7 @@ export interface IStorage {
   // Bank account methods
   getBankAccounts(userId: number): Promise<BankAccount[]>;
   getBankAccount(id: number): Promise<BankAccount | undefined>;
+  getBankAccountByAccountNumber(accountNumber: string): Promise<BankAccount | undefined>;
   createBankAccount(account: InsertBankAccount): Promise<BankAccount>;
   updateBankAccount(id: number, account: Partial<InsertBankAccount>): Promise<BankAccount | undefined>;
   deleteBankAccount(id: number): Promise<boolean>;
@@ -128,6 +129,11 @@ export class DatabaseStorage implements IStorage {
     return account;
   }
   
+  async getBankAccountByAccountNumber(accountNumber: string): Promise<BankAccount | undefined> {
+    const [account] = await db.select().from(bankAccounts).where(eq(bankAccounts.accountNumber, accountNumber));
+    return account;
+  }
+  
   async createBankAccount(accountData: InsertBankAccount): Promise<BankAccount> {
     const [account] = await db.insert(bankAccounts).values(accountData).returning();
     return account;
@@ -203,12 +209,16 @@ export class DatabaseStorage implements IStorage {
     
     if (filters) {
       if (filters.startDate) {
-        const dateString = filters.startDate.toISOString().split('T')[0];
+        // Ensure startDate is a Date object
+        const startDate = typeof filters.startDate === 'string' ? new Date(filters.startDate) : filters.startDate;
+        const dateString = startDate.toISOString().split('T')[0];
         query = query.where(sql`${transactions.date} >= ${dateString}`);
       }
       
       if (filters.endDate) {
-        const dateString = filters.endDate.toISOString().split('T')[0];
+        // Ensure endDate is a Date object
+        const endDate = typeof filters.endDate === 'string' ? new Date(filters.endDate) : filters.endDate;
+        const dateString = endDate.toISOString().split('T')[0];
         query = query.where(sql`${transactions.date} <= ${dateString}`);
       }
       
@@ -469,8 +479,16 @@ export class DatabaseStorage implements IStorage {
     });
     
     // Format dates for query
-    const startDateStr = budget.startDate.toISOString().split('T')[0];
-    const endDateStr = budget.endDate ? budget.endDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    // Ensure budget.startDate is a Date object
+    const startDate = typeof budget.startDate === 'string' ? new Date(budget.startDate) : budget.startDate;
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    // Handle budget.endDate which might be a string or a Date or null
+    let endDate = new Date();
+    if (budget.endDate) {
+      endDate = typeof budget.endDate === 'string' ? new Date(budget.endDate) : budget.endDate;
+    }
+    const endDateStr = endDate.toISOString().split('T')[0];
     
     // Get transactions for each category in the date range
     const result = await Promise.all(

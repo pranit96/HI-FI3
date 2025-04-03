@@ -28,6 +28,7 @@ export const bankAccounts = pgTable("bank_accounts", {
   balance: doublePrecision("balance").default(0).notNull(),
   color: text("color").notNull(),
   shortCode: text("short_code").notNull(),
+  institution: text("institution").default("Unknown"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -50,7 +51,6 @@ export const bankStatements = pgTable("bank_statements", {
 
 export const insertBankStatementSchema = createInsertSchema(bankStatements).omit({
   id: true,
-  processed: true,
   uploadedAt: true,
 });
 

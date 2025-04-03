@@ -18,8 +18,8 @@ interface ParsedBankStatement {
   bankType: BankType;
   accountNumber: string;
   accountHolderName: string;
-  startDate: string; // ISO date string
-  endDate: string; // ISO date string
+  startDate: Date;
+  endDate: Date;
   transactions: InsertTransaction[];
 }
 
@@ -236,12 +236,15 @@ function parseHDFCStatement(content: string, userId: number, bankAccountId: numb
   const parsedStartDate = startDate ? parseDate(startDate).toISOString().split('T')[0] : '';
   const parsedEndDate = endDate ? parseDate(endDate).toISOString().split('T')[0] : '';
   
+  // Use current date if startDate or endDate is empty
+  const defaultDate = new Date();
+  
   return {
     bankType: BankType.HDFC,
     accountNumber,
     accountHolderName,
-    startDate: parsedStartDate,
-    endDate: parsedEndDate,
+    startDate: startDate ? parseDate(startDate) : defaultDate,
+    endDate: endDate ? parseDate(endDate) : defaultDate,
     transactions
   };
 }
@@ -405,12 +408,15 @@ function parseICICIStatement(content: string, userId: number, bankAccountId: num
   const parsedStartDate = startDate ? parseDate(startDate).toISOString().split('T')[0] : '';
   const parsedEndDate = endDate ? parseDate(endDate).toISOString().split('T')[0] : '';
   
+  // Use current date if startDate or endDate is empty
+  const defaultDate = new Date();
+  
   return {
     bankType: BankType.ICICI,
     accountNumber,
     accountHolderName,
-    startDate: parsedStartDate,
-    endDate: parsedEndDate,
+    startDate: startDate ? parseDate(startDate) : defaultDate,
+    endDate: endDate ? parseDate(endDate) : defaultDate,
     transactions
   };
 }
@@ -427,18 +433,22 @@ async function readFileAsText(filePath: string): Promise<string> {
 /**
  * Main function to parse bank statement
  */
-export async function parseBankStatement(filePath: string, userId: number, bankAccountId: number): Promise<ParsedBankStatement> {
+export async function parseBankStatement(filePath: string, userId: number, bankAccountId?: number): Promise<ParsedBankStatement> {
   try {
     const content = await readFileAsText(filePath);
     
     // Detect bank type
     const bankType = detectBankType(content);
     
+    // If bankAccountId is not provided, it will be determined from the parsed statement
+    // and a new bank account will be created if needed
+    const accountIdToUse = bankAccountId || 0; // Temporary ID that will be replaced
+    
     switch (bankType) {
       case BankType.HDFC:
-        return parseHDFCStatement(content, userId, bankAccountId);
+        return parseHDFCStatement(content, userId, accountIdToUse);
       case BankType.ICICI:
-        return parseICICIStatement(content, userId, bankAccountId);
+        return parseICICIStatement(content, userId, accountIdToUse);
       default:
         throw new Error('Unsupported bank statement format. Currently supported banks: HDFC, ICICI');
     }

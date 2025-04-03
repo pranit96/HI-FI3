@@ -357,28 +357,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         const userId = req.session.userId!;
-        const { bankAccountId } = z.object({ 
-          bankAccountId: z.string().transform(val => parseInt(val)) 
-        }).parse(req.body);
         
-        // Verify bank account belongs to user
-        const account = await storage.getBankAccount(bankAccountId);
-        if (!account || account.userId !== userId) {
-          // Remove uploaded file
+        // Parse bank statement (without requiring bankAccountId)
+        const parsedStatement = await parseBankStatement(req.file.path, userId);
+        
+        // Get or create bank account based on the parsed statement
+        let bankAccount = await storage.getBankAccountByAccountNumber(parsedStatement.accountNumber);
+        
+        if (!bankAccount) {
+          // Create a new bank account if one doesn't exist with this account number
+          bankAccount = await storage.createBankAccount({
+            userId,
+            name: `${parsedStatement.bankType} Account`,
+            accountNumber: parsedStatement.accountNumber,
+            balance: 0, // Will be updated with the latest transaction balance
+            type: 'checking',
+            color: '#4CAF50', // Default green color
+            shortCode: parsedStatement.bankType.substring(0, 2),
+            institution: parsedStatement.bankType
+          });
+        } else if (bankAccount.userId !== userId) {
+          // Security check: Ensure account belongs to current user
           await fs.unlink(req.file.path);
-          return res.status(404).json({ message: "Bank account not found" });
+          return res.status(403).json({ message: "You don't have permission to access this account" });
         }
-        
-        // Parse bank statement
-        const parsedStatement = await parseBankStatement(req.file.path, userId, bankAccountId);
         
         // Create bank statement record
         const statementData = {
           userId,
-          bankAccountId,
+          bankAccountId: bankAccount.id,
           fileName: req.file.originalname,
-          startDate: parsedStatement.startDate,
-          endDate: parsedStatement.endDate,
+          startDate: parsedStatement.startDate.toISOString().split('T')[0], // Convert to YYYY-MM-DD
+          endDate: parsedStatement.endDate.toISOString().split('T')[0],     // Convert to YYYY-MM-DD
+          processed: false
         };
         
         const bankStatement = await storage.createBankStatement(statementData);
@@ -398,9 +409,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update transactions with categories
         for (const transaction of transactions) {
           if (transaction.category) {
-            await storage.createTransaction({
-              ...transaction,
-              id: undefined
+            await storage.updateTransaction(transaction.id, {
+              category: transaction.category
             });
           }
         }
@@ -411,7 +421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const previousTransactions = await storage.getTransactions(userId, {
           startDate: twoMonthsAgo,
-          endDate: parsedStatement.startDate
+          endDate: new Date(parsedStatement.startDate)
         });
         
         const insights = await generateSpendingInsights(transactions, previousTransactions);
@@ -423,6 +433,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Mark bank statement as processed
         await storage.updateBankStatement(bankStatement.id, { processed: true });
+        
+        // Delete the PDF file for security after processing
+        await fs.unlink(req.file.path).catch(err => {
+          console.error("Failed to delete PDF file:", err);
+        });
         
         // Send analysis complete email
         const user = await storage.getUser(userId);
