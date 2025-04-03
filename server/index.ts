@@ -21,13 +21,13 @@ registerRoutes(app).then(() => {
 });
 
 // Serve static frontend assets
-app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(process.cwd(), 'dist')));
 
 // Frontend route handling should come last
 app.get('*', (req, res) => {
   // Only serve index.html for non-API routes
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+    res.sendFile(path.join(process.cwd(), 'dist/index.html'));
   }
 });
 
