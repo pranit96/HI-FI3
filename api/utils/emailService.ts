@@ -275,4 +275,38 @@ export const emailService = {
       return false;
     }
   },
+
+  // Send test email (for testing nodemailer setup)
+  sendTestEmail: async (email: string) => {
+    try {
+      await transporter.sendMail({
+        from: EMAIL_FROM,
+        to: email,
+        subject: 'Test Email from Finance Hub (Nodemailer)',
+        text: `This is a test email from Finance Hub. If you're receiving this, it means your email configuration is working correctly. Current time: ${new Date().toLocaleString()}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #28a745; color: white; padding: 20px; text-align: center;">
+              <h1>Test Email (Nodemailer)</h1>
+            </div>
+            <div style="padding: 20px;">
+              <p>This is a test email from Finance Hub.</p>
+              <p>If you're receiving this, it means your nodemailer email configuration is working correctly.</p>
+              <p>Current time: ${new Date().toLocaleString()}</p>
+              <p>Best,<br>The Finance Hub Team</p>
+            </div>
+            <div style="background-color: #f5f5f5; padding: 10px; text-align: center; font-size: 12px; color: #666;">
+              <p>This is an automated test email. Please do not reply to this message.</p>
+            </div>
+          </div>
+        `,
+      });
+      
+      console.log(`Test email sent to ${email} via Nodemailer`);
+      return true;
+    } catch (error) {
+      console.error('Error sending test email with Nodemailer:', error);
+      return false;
+    }
+  },
 };

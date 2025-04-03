@@ -42,6 +42,7 @@ export interface IStorage {
   }): Promise<Transaction[]>;
   getTransaction(id: number): Promise<Transaction | undefined>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  updateTransaction(id: number, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined>;
   createManyTransactions(transactions: InsertTransaction[]): Promise<Transaction[]>;
   
   // Category methods
@@ -216,6 +217,15 @@ export class DatabaseStorage implements IStorage {
     
     const insertedTransactions = await db.insert(transactions).values(transactionsData).returning();
     return insertedTransactions;
+  }
+  
+  async updateTransaction(id: number, transactionData: Partial<InsertTransaction>): Promise<Transaction | undefined> {
+    const [updatedTransaction] = await db
+      .update(transactions)
+      .set(transactionData)
+      .where(eq(transactions.id, id))
+      .returning();
+    return updatedTransaction;
   }
 
   /*** Category methods ***/

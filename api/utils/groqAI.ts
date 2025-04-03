@@ -7,6 +7,31 @@ const groq = new Groq({
 });
 
 /**
+ * General-purpose function for analyzing text with Groq API
+ */
+export async function analyzeWithGroq(prompt: string): Promise<string | null> {
+  try {
+    if (!process.env.GROQ_API_KEY) {
+      console.warn('GROQ_API_KEY is not set. AI analysis functionality will not work.');
+      return null;
+    }
+    
+    const response = await groq.chat.completions.create({
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+      model: 'llama3-8b-8192',
+      temperature: 0.5,
+    });
+    
+    return response.choices[0].message.content;
+  } catch (error) {
+    console.error('Error analyzing with Groq AI:', error);
+    return null;
+  }
+}
+
+/**
  * Categorize transactions using Groq AI
  */
 export async function categorizeTransactions(transactions: Transaction[]): Promise<Transaction[]> {
