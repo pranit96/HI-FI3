@@ -408,6 +408,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/bank-statements/upload",
     isAuthenticated,
+    async (req: Request, res: Response, next: Function) => {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      next();
+    },
     upload.single("file"),
     async (req: Request, res: Response) => {
       try {
@@ -829,15 +836,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get income vs expenses for a date range
   app.get("/api/analytics/income-vs-expenses", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.session.userId!;
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
 
-      // Parse query parameters
-      const { startDate, endDate } = z.object({
+      // If no dates provided, default to current month
+      const today = new Date();
+      const defaultStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      const defaultEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+      // Parse query parameters with defaults
+      const { startDate = defaultStartDate.toISOString().split('T')[0], 
+              endDate = defaultEndDate.toISOString().split('T')[0] } = req.query;
+
+      // Validate dates
+      const schema = z.object({
         startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform(val => new Date(val)),
         endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform(val => new Date(val))
-      }).parse(req.query);
+      }).refine(data => data.startDate <= data.endDate, {
+        message: "Start date must be before or equal to end date"
+      });
 
-      const result = await storage.getTotalIncomeAndExpenses(userId, startDate, endDate);
+      const dates = schema.parse({ startDate, endDate });
+      const result = await storage.getTotalIncomeAndExpenses(userId, dates.startDate, dates.endDate);
       res.status(200).json(result);
     } catch (error) {
       if (error instanceof z.ZodError) {
