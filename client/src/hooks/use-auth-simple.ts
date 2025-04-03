@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -24,25 +25,29 @@ export function useAuth() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  // Query for current user
   const { data: user, isLoading: isLoadingUser } = useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
-      const token = localStorage.getItem('auth-token');
-      if (!token) return null;
+      try {
+        const token = localStorage.getItem('auth-token');
+        if (!token) return null;
 
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          localStorage.removeItem('auth-token');
+          return null;
         }
-      });
 
-      if (!response.ok) {
+        return response.json();
+      } catch (error) {
         localStorage.removeItem('auth-token');
         return null;
       }
-
-      return response.json();
     }
   });
 
@@ -56,14 +61,6 @@ export function useAuth() {
         body: JSON.stringify(credentials),
         credentials: 'include'
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Login failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('auth-token', data.token);
 
       if (!response.ok) {
         const error = await response.json();

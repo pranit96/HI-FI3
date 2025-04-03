@@ -1,3 +1,4 @@
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import { User } from '@shared/schema';
 import jwt from 'jsonwebtoken';
@@ -12,7 +13,6 @@ export interface AuthenticatedRequest extends NextApiRequest {
 export const withAuth = (handler: (req: AuthenticatedRequest, res: NextApiResponse) => Promise<any>) => {
   return async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
-      // Get token from Authorization header or cookie
       const authHeader = req.headers.authorization;
       const cookieToken = req.cookies?.token;
       const token = authHeader?.startsWith('Bearer ') 
@@ -20,23 +20,21 @@ export const withAuth = (handler: (req: AuthenticatedRequest, res: NextApiRespon
         : cookieToken;
 
       if (!token) {
-        return res.status(401).json({ error: 'No authentication token provided' });
+        return res.status(401).json({ error: 'Authentication required' });
       }
 
-      // Verify token
       const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
       const user = await storage.getUser(decoded.id);
 
       if (!user) {
-        return res.status(401).json({ error: 'Invalid user token' });
+        return res.status(401).json({ error: 'User not found' });
       }
 
-      // Attach user to request
       req.user = user;
       return handler(req, res);
     } catch (error) {
       console.error('Auth error:', error);
-      return res.status(401).json({ error: 'Authentication failed' });
+      return res.status(401).json({ error: 'Invalid or expired token' });
     }
   };
 };
