@@ -83,6 +83,17 @@ export function useAuth() {
 
       const { token, user } = await response.json();
       localStorage.setItem('auth-token', token);
+      
+      // Update user data immediately
+      queryClient.setQueryData(['currentUser'], user);
+      
+      toast({
+        title: "Login successful",
+        description: "Welcome back!",
+        variant: "success",
+      });
+
+      navigate('/dashboard');
 
       // Update query client configuration
       queryClient.setDefaultOptions({
