@@ -4,71 +4,57 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { storage } from '../storage';
 
-// JWT secret from environment variable
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-for-development-only';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Validate login data
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  email: z.string().email('Invalid email'),
+  password: z.string().min(8, 'Password too short'),
 });
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Validate request body
     const validation = loginSchema.safeParse(req.body);
-    
+
     if (!validation.success) {
-      return res.status(400).json({
-        error: 'Invalid login data',
+      return res.status(400).json({ 
+        error: 'Invalid input',
         details: validation.error.format()
       });
     }
 
     const { email, password } = validation.data;
 
-    // Find user by email
+    // Find user
     const user = await storage.getUserByEmail(email);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Remove password from response
-    const { password: _, ...safeUserData } = user;
+    // Generate token
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-    // Generate JWT token with consistent payload
-    const token = jwt.sign(
-      { id: user.id }, // Matches frontend expected structure
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Remove sensitive data
+    const { password: _, ...safeUser } = user;
 
-    // Set auth token in cookie
-    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Strict`);
-    
-    // Return user and token silently
+    // Set HTTP-only cookie
+    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
+
     return res.status(200).json({
-      message: 'Login successful',
-      user: safeUserData,
+      user: safeUser,
       token
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({
-      error: 'Login failed',
-      message: (error as Error).message
-    });
+    return res.status(500).json({ error: 'Login failed' });
   }
-};
-
-export default handler;
+}
