@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { Route, Redirect } from "wouter";
 import { useAuth } from "@/hooks/use-auth-simple";
 import { Loader2 } from "lucide-react";
-import DashboardLayout from "@/components/layouts/DashboardLayout";
 
 interface ProtectedRouteProps {
   path: string;
@@ -32,9 +31,7 @@ export function ProtectedRoute({ path, children }: ProtectedRouteProps) {
 
   return (
     <Route path={path}>
-      <DashboardLayout>
-        {children}
-      </DashboardLayout>
+      {children}
     </Route>
   );
 }
