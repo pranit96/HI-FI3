@@ -89,8 +89,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  // Logging middleware
+  const loggingMiddleware = (req: Request, res: Response, next: Function) => {
+    const startTime = Date.now();
+    const originalSend = res.send;
+    let capturedJsonResponse: any;
+
+    res.send = (body: any) => {
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      const path = req.path;
+
+      if (path.startsWith("/api")) {
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (typeof body === 'object') {
+          capturedJsonResponse = body;
+          // Only log non-sensitive routes
+          if (!path.includes("/auth/") && !path.includes("/bank-statements/")) {
+            // Remove sensitive fields
+            const sanitizedResponse = { ...capturedJsonResponse };
+            delete sanitizedResponse.token;
+            delete sanitizedResponse.user;
+            delete sanitizedResponse.password;
+            delete sanitizedResponse.email;
+            delete sanitizedResponse.confirmPassword; // Added to handle registration route
+
+
+            logLine += ` :: ${JSON.stringify(sanitizedResponse)}`;
+          }
+        }
+
+        if (logLine.length > 80) {
+          logLine = logLine.slice(0, 79) + "…";
+        }
+
+        console.log(logLine); // Use console.log for demonstration; replace with your preferred logging method
+      }
+      originalSend.call(res, body);
+    }
+    next();
+  }
+  app.use(loggingMiddleware);
+
+
   // AUTH ROUTES
-  
+
   // Register
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
@@ -100,23 +143,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Passwords don't match",
         path: ["confirmPassword"]
       }).parse(req.body);
-      
+
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(userData.email);
       if (existingUser) {
         return res.status(400).json({ message: "Email already in use" });
       }
-      
+
       // Hash password
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
-      
+
       // Create user
       const user = await storage.createUser({
         ...userData,
         password: hashedPassword
       });
-      
+
       // Create default notification preferences
       await storage.createNotificationPreferences({
         userId: user.id,
@@ -125,17 +168,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         goalProgress: true,
         insights: true
       });
-      
+
       // Send welcome email
       try {
         await emailService.sendWelcomeEmail(user);
       } catch (emailError) {
         console.error("Failed to send welcome email:", emailError);
       }
-      
+
       // Login the user
       req.session.userId = user.id;
-      
+
       // Return user without password
       const { password, ...userWithoutPassword } = user;
       res.status(201).json(userWithoutPassword);
@@ -148,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Login
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
@@ -156,22 +199,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: z.string().email(),
         password: z.string().min(6)
       }).parse(req.body);
-      
+
       // Find user by email
       const user = await storage.getUserByEmail(email);
       if (!user) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
-      
+
       // Compare passwords
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
-      
+
       // Set session
       req.session.userId = user.id;
-      
+
       // Return user without password
       const { password: _, ...userWithoutPassword } = user;
       res.status(200).json(userWithoutPassword);
@@ -184,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Logout
   app.post("/api/auth/logout", (req: Request, res: Response) => {
     req.session.destroy((err) => {
@@ -195,20 +238,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json({ message: "Logged out successfully" });
     });
   });
-  
+
   // Check auth status
   app.get("/api/auth/me", async (req: Request, res: Response) => {
     try {
       if (!req.session.userId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
-      
+
       const user = await storage.getUser(req.session.userId);
       if (!user) {
         req.session.destroy(() => {});
         return res.status(401).json({ message: "User not found" });
       }
-      
+
       // Return user without password
       const { password, ...userWithoutPassword } = user;
       res.status(200).json(userWithoutPassword);
@@ -217,26 +260,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // USER ROUTES
-  
+
   // Update user
   app.patch("/api/users/me", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const updateData = insertUserSchema.partial().parse(req.body);
-      
+
       // If updating password, hash it
       if (updateData.password) {
         const saltRounds = 10;
         updateData.password = await bcrypt.hash(updateData.password, saltRounds);
       }
-      
+
       const updatedUser = await storage.updateUser(userId, updateData);
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       // Return user without password
       const { password, ...userWithoutPassword } = updatedUser;
       res.status(200).json(userWithoutPassword);
@@ -249,9 +292,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // BANK ACCOUNT ROUTES
-  
+
   // Get all bank accounts
   app.get("/api/bank-accounts", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -263,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Create bank account
   app.post("/api/bank-accounts", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -272,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId
       });
-      
+
       const account = await storage.createBankAccount(accountData);
       res.status(201).json(account);
     } catch (error) {
@@ -284,22 +327,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Update bank account
   app.patch("/api/bank-accounts/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const accountId = parseInt(req.params.id);
-      
+
       // Verify account belongs to user
       const account = await storage.getBankAccount(accountId);
       if (!account || account.userId !== userId) {
         return res.status(404).json({ message: "Bank account not found" });
       }
-      
+
       const updateData = insertBankAccountSchema.partial().parse(req.body);
       const updatedAccount = await storage.updateBankAccount(accountId, updateData);
-      
+
       res.status(200).json(updatedAccount);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -310,19 +353,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Delete bank account
   app.delete("/api/bank-accounts/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const accountId = parseInt(req.params.id);
-      
+
       // Verify account belongs to user
       const account = await storage.getBankAccount(accountId);
       if (!account || account.userId !== userId) {
         return res.status(404).json({ message: "Bank account not found" });
       }
-      
+
       await storage.deleteBankAccount(accountId);
       res.status(200).json({ message: "Bank account deleted successfully" });
     } catch (error) {
@@ -330,9 +373,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // BANK STATEMENT ROUTES
-  
+
   // Get all bank statements
   app.get("/api/bank-statements", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -344,7 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Upload bank statement
   app.post(
     "/api/bank-statements/upload",
@@ -355,15 +398,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!req.file) {
           return res.status(400).json({ message: "No file uploaded" });
         }
-        
+
         const userId = req.session.userId!;
-        
+
         // Parse bank statement (without requiring bankAccountId)
         const parsedStatement = await parseBankStatement(req.file.path, userId);
-        
+
         // Get or create bank account based on the parsed statement
         let bankAccount = await storage.getBankAccountByAccountNumber(parsedStatement.accountNumber);
-        
+
         if (!bankAccount) {
           // Create a new bank account if one doesn't exist with this account number
           bankAccount = await storage.createBankAccount({
@@ -381,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await fs.unlink(req.file.path);
           return res.status(403).json({ message: "You don't have permission to access this account" });
         }
-        
+
         // Create bank statement record
         const statementData = {
           userId,
@@ -391,21 +434,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           endDate: parsedStatement.endDate.toISOString().split('T')[0],     // Convert to YYYY-MM-DD
           processed: false
         };
-        
+
         const bankStatement = await storage.createBankStatement(statementData);
-        
+
         // Update transactions with bank statement ID and categorize them
         const transactionsWithStmtId = parsedStatement.transactions.map(t => ({
           ...t,
           bankStatementId: bankStatement.id
         }));
-        
+
         // Create transactions
         let transactions = await storage.createManyTransactions(transactionsWithStmtId);
-        
+
         // Categorize transactions using AI
         transactions = await categorizeTransactions(transactions);
-        
+
         // Update transactions with categories
         for (const transaction of transactions) {
           if (transaction.category) {
@@ -414,31 +457,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
         }
-        
+
         // Generate insights
         const twoMonthsAgo = new Date();
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-        
+
         const previousTransactions = await storage.getTransactions(userId, {
           startDate: twoMonthsAgo,
           endDate: new Date(parsedStatement.startDate)
         });
-        
+
         const insights = await generateSpendingInsights(transactions, previousTransactions);
-        
+
         // Save insights
         for (const insight of insights) {
           await storage.createInsight(insight);
         }
-        
+
         // Mark bank statement as processed
         await storage.updateBankStatement(bankStatement.id, { processed: true });
-        
+
         // Delete the PDF file for security after processing
         await fs.unlink(req.file.path).catch(err => {
           console.error("Failed to delete PDF file:", err);
         });
-        
+
         // Send analysis complete email
         const user = await storage.getUser(userId);
         if (user) {
@@ -448,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error("Failed to send analysis email:", emailError);
           }
         }
-        
+
         res.status(201).json({ 
           bankStatement,
           transactionCount: transactions.length,
@@ -464,39 +507,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
-  
+
   // TRANSACTION ROUTES
-  
+
   // Get transactions with filtering
   app.get("/api/transactions", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       // Parse query parameters
       const { startDate, endDate, category, type, bankAccountId } = req.query;
-      
+
       const filters: any = {};
-      
+
       if (startDate) {
         filters.startDate = new Date(startDate as string);
       }
-      
+
       if (endDate) {
         filters.endDate = new Date(endDate as string);
       }
-      
+
       if (category) {
         filters.category = category as string;
       }
-      
+
       if (type) {
         filters.type = type as string;
       }
-      
+
       if (bankAccountId) {
         filters.bankAccountId = parseInt(bankAccountId as string);
       }
-      
+
       const transactions = await storage.getTransactions(userId, filters);
       res.status(200).json(transactions);
     } catch (error) {
@@ -504,22 +547,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Update transaction (e.g., to change category)
   app.patch("/api/transactions/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const transactionId = parseInt(req.params.id);
-      
+
       // Verify transaction belongs to user
       const transaction = await storage.getTransaction(transactionId);
       if (!transaction || transaction.userId !== userId) {
         return res.status(404).json({ message: "Transaction not found" });
       }
-      
+
       const updateData = insertTransactionSchema.partial().parse(req.body);
       const updatedTransaction = await storage.updateTransaction(transactionId, updateData);
-      
+
       res.status(200).json(updatedTransaction);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -530,9 +573,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // CATEGORY ROUTES
-  
+
   // Get all categories
   app.get("/api/categories", async (req: Request, res: Response) => {
     try {
@@ -543,9 +586,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // INSIGHT ROUTES
-  
+
   // Get all insights
   app.get("/api/insights", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -557,9 +600,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // GOAL ROUTES
-  
+
   // Get all goals
   app.get("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -571,7 +614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Create goal
   app.post("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -580,7 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId
       });
-      
+
       const goal = await storage.createGoal(goalData);
       res.status(201).json(goal);
     } catch (error) {
@@ -592,22 +635,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Update goal
   app.patch("/api/goals/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const goalId = parseInt(req.params.id);
-      
+
       // Verify goal belongs to user
       const goal = await storage.getGoal(goalId);
       if (!goal || goal.userId !== userId) {
         return res.status(404).json({ message: "Goal not found" });
       }
-      
+
       const updateData = insertGoalSchema.partial().parse(req.body);
       const updatedGoal = await storage.updateGoal(goalId, updateData);
-      
+
       res.status(200).json(updatedGoal);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -618,19 +661,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Delete goal
   app.delete("/api/goals/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const goalId = parseInt(req.params.id);
-      
+
       // Verify goal belongs to user
       const goal = await storage.getGoal(goalId);
       if (!goal || goal.userId !== userId) {
         return res.status(404).json({ message: "Goal not found" });
       }
-      
+
       await storage.deleteGoal(goalId);
       res.status(200).json({ message: "Goal deleted successfully" });
     } catch (error) {
@@ -638,44 +681,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Suggest financial goals based on transaction history
   app.post("/api/goals/suggest", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       // Get recent transactions (last 3 months)
       const threeMonthsAgo = new Date();
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-      
+
       const transactions = await storage.getTransactions(userId, {
         startDate: threeMonthsAgo
       });
-      
+
       if (transactions.length === 0) {
         return res.status(400).json({ message: "Not enough transaction history to suggest goals" });
       }
-      
+
       // Generate goal suggestions using AI
       const suggestedGoals = await suggestFinancialGoals(transactions);
-      
+
       res.status(200).json(suggestedGoals);
     } catch (error) {
       console.error("Goal suggestion error:", error);
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // NOTIFICATION PREFERENCES ROUTES
-  
+
   // Get notification preferences
   app.get("/api/notification-preferences", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       // Get preferences or create default ones if not found
       let preferences = await storage.getNotificationPreferences(userId);
-      
+
       if (!preferences) {
         preferences = await storage.createNotificationPreferences({
           userId,
@@ -685,27 +728,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           insights: true
         });
       }
-      
+
       res.status(200).json(preferences);
     } catch (error) {
       console.error("Get notification preferences error:", error);
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Update notification preferences
   app.patch("/api/notification-preferences", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       const updateData = insertNotificationPreferenceSchema.partial().parse({
         ...req.body,
         userId
       });
-      
+
       // Check if preferences exist
       let preferences = await storage.getNotificationPreferences(userId);
-      
+
       if (!preferences) {
         // Create if not exists
         preferences = await storage.createNotificationPreferences({
@@ -719,7 +762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Otherwise update
         preferences = await storage.updateNotificationPreferences(userId, updateData);
       }
-      
+
       res.status(200).json(preferences);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -730,20 +773,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // ANALYTICS ROUTES
-  
+
   // Get monthly expenses by category
   app.get("/api/analytics/expenses-by-category", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       // Parse query parameters
       const { year, month } = z.object({
         year: z.string().regex(/^\d{4}$/).transform(val => parseInt(val)),
         month: z.string().regex(/^([1-9]|1[0-2])$/).transform(val => parseInt(val))
       }).parse(req.query);
-      
+
       const expenses = await storage.getMonthlyExpensesByCategory(userId, year, month);
       res.status(200).json(expenses);
     } catch (error) {
@@ -755,18 +798,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Get income vs expenses for a date range
   app.get("/api/analytics/income-vs-expenses", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       // Parse query parameters
       const { startDate, endDate } = z.object({
         startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform(val => new Date(val)),
         endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform(val => new Date(val))
       }).parse(req.query);
-      
+
       const result = await storage.getTotalIncomeAndExpenses(userId, startDate, endDate);
       res.status(200).json(result);
     } catch (error) {
@@ -778,9 +821,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // BUDGET ROUTES
-  
+
   // Get all budgets
   app.get("/api/budgets", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -792,26 +835,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Get a single budget
   app.get("/api/budgets/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const budgetId = parseInt(req.params.id);
-      
+
       // Verify budget belongs to user
       const budget = await storage.getBudget(budgetId);
       if (!budget || budget.userId !== userId) {
         return res.status(404).json({ message: "Budget not found" });
       }
-      
+
       res.status(200).json(budget);
     } catch (error) {
       console.error("Get budget error:", error);
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Create a new budget
   app.post("/api/budgets", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -820,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId
       });
-      
+
       const budget = await storage.createBudget(budgetData);
       res.status(201).json(budget);
     } catch (error) {
@@ -832,22 +875,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Update a budget
   app.patch("/api/budgets/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const budgetId = parseInt(req.params.id);
-      
+
       // Verify budget belongs to user
       const budget = await storage.getBudget(budgetId);
       if (!budget || budget.userId !== userId) {
         return res.status(404).json({ message: "Budget not found" });
       }
-      
+
       const updateData = insertBudgetSchema.partial().parse(req.body);
       const updatedBudget = await storage.updateBudget(budgetId, updateData);
-      
+
       res.status(200).json(updatedBudget);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -858,19 +901,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Delete a budget
   app.delete("/api/budgets/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const budgetId = parseInt(req.params.id);
-      
+
       // Verify budget belongs to user
       const budget = await storage.getBudget(budgetId);
       if (!budget || budget.userId !== userId) {
         return res.status(404).json({ message: "Budget not found" });
       }
-      
+
       await storage.deleteBudget(budgetId);
       res.status(200).json({ message: "Budget deleted successfully" });
     } catch (error) {
@@ -878,19 +921,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Get budget categories
   app.get("/api/budgets/:id/categories", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const budgetId = parseInt(req.params.id);
-      
+
       // Verify budget belongs to user
       const budget = await storage.getBudget(budgetId);
       if (!budget || budget.userId !== userId) {
         return res.status(404).json({ message: "Budget not found" });
       }
-      
+
       const budgetCategories = await storage.getBudgetCategories(budgetId);
       res.status(200).json(budgetCategories);
     } catch (error) {
@@ -898,24 +941,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Add a category to a budget
   app.post("/api/budgets/:id/categories", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const budgetId = parseInt(req.params.id);
-      
+
       // Verify budget belongs to user
       const budget = await storage.getBudget(budgetId);
       if (!budget || budget.userId !== userId) {
         return res.status(404).json({ message: "Budget not found" });
       }
-      
+
       const categoryData = insertBudgetCategorySchema.parse({
         ...req.body,
         budgetId
       });
-      
+
       const budgetCategory = await storage.createBudgetCategory(categoryData);
       res.status(201).json(budgetCategory);
     } catch (error) {
@@ -927,28 +970,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Update a budget category
   app.patch("/api/budget-categories/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const categoryId = parseInt(req.params.id);
-      
+
       // Get the category
       const category = await storage.getBudgetCategory(categoryId);
       if (!category) {
         return res.status(404).json({ message: "Budget category not found" });
       }
-      
+
       // Verify budget belongs to user
       const budget = await storage.getBudget(category.budgetId);
       if (!budget || budget.userId !== userId) {
         return res.status(404).json({ message: "Budget not found" });
       }
-      
+
       const updateData = insertBudgetCategorySchema.partial().parse(req.body);
       const updatedCategory = await storage.updateBudgetCategory(categoryId, updateData);
-      
+
       res.status(200).json(updatedCategory);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -959,25 +1002,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Delete a budget category
   app.delete("/api/budget-categories/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const categoryId = parseInt(req.params.id);
-      
+
       // Get the category
       const category = await storage.getBudgetCategory(categoryId);
       if (!category) {
         return res.status(404).json({ message: "Budget category not found" });
       }
-      
+
       // Verify budget belongs to user
       const budget = await storage.getBudget(category.budgetId);
       if (!budget || budget.userId !== userId) {
         return res.status(404).json({ message: "Budget not found" });
       }
-      
+
       await storage.deleteBudgetCategory(categoryId);
       res.status(200).json({ message: "Budget category deleted successfully" });
     } catch (error) {
@@ -985,19 +1028,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Get budget progress
   app.get("/api/budgets/:id/progress", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const budgetId = parseInt(req.params.id);
-      
+
       // Verify budget belongs to user
       const budget = await storage.getBudget(budgetId);
       if (!budget || budget.userId !== userId) {
         return res.status(404).json({ message: "Budget not found" });
       }
-      
+
       const progress = await storage.getBudgetProgress(budgetId);
       res.status(200).json(progress);
     } catch (error) {
@@ -1005,19 +1048,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // ADMIN ROUTES
-  
+
   // Test email
   app.post("/api/admin/test-email", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
       const user = await storage.getUser(userId);
-      
+
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       // Test email with Gmail SMTP
       let emailResult = false;
       try {
@@ -1027,14 +1070,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Gmail SMTP email error:", error);
         emailResult = false;
       }
-      
+
       if (!emailResult) {
         return res.status(500).json({ 
           message: "Email test failed with Gmail SMTP",
           success: emailResult
         });
       }
-      
+
       res.status(200).json({ 
         message: "Email test completed", 
         success: emailResult,
@@ -1045,7 +1088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-  
+
   // Test Groq AI
   app.post("/api/admin/test-groq", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -1056,19 +1099,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false
         });
       }
-      
+
       // Test with a simple query
       const prompt = "Generate a short finance tip for saving money.";
-      
+
       const response = await analyzeWithGroq(prompt);
-      
+
       if (!response) {
         return res.status(500).json({ 
           message: "Failed to get response from Groq AI",
           success: false
         });
       }
-      
+
       res.status(200).json({
         message: "Groq AI test successful",
         success: true,
@@ -1083,13 +1126,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-  
+
   // Test database
   app.get("/api/admin/test-database", isAuthenticated, async (req: Request, res: Response) => {
     try {
       // Perform a simple query to check database connection
       const categoriesCount = await storage.getCategories();
-      
+
       res.status(200).json({
         message: "Database connection successful",
         success: true,
@@ -1106,24 +1149,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-  
+
   // DATA MANAGEMENT ROUTES
-  
+
   // Delete all user transactions
   app.delete("/api/user-data/transactions", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       // Get all user transactions
       const transactions = await storage.getTransactions(userId);
-      
+
       // Delete each transaction
       let deletedCount = 0;
       for (const transaction of transactions) {
         await storage.deleteTransaction(transaction.id);
         deletedCount++;
       }
-      
+
       res.status(200).json({ 
         message: `Successfully deleted ${deletedCount} transactions`, 
         count: deletedCount 
@@ -1133,22 +1176,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete transactions" });
     }
   });
-  
+
   // Delete all bank statements
   app.delete("/api/user-data/statements", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       // Get all user bank statements
       const statements = await storage.getBankStatements(userId);
-      
+
       // Delete each statement
       let deletedCount = 0;
       for (const statement of statements) {
         await storage.deleteBankStatement(statement.id);
         deletedCount++;
       }
-      
+
       res.status(200).json({ 
         message: `Successfully deleted ${deletedCount} bank statements`, 
         count: deletedCount 
@@ -1158,36 +1201,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete bank statements" });
     }
   });
-  
+
   // Delete all user financial data
   app.delete("/api/user-data/all", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      
+
       // Delete transactions
       const transactions = await storage.getTransactions(userId);
       for (const transaction of transactions) {
         await storage.deleteTransaction(transaction.id);
       }
-      
+
       // Delete bank statements
       const statements = await storage.getBankStatements(userId);
       for (const statement of statements) {
         await storage.deleteBankStatement(statement.id);
       }
-      
+
       // Delete insights
       const insights = await storage.getInsights(userId);
       for (const insight of insights) {
         await storage.deleteInsight(insight.id);
       }
-      
+
       // Delete goals
       const goals = await storage.getGoals(userId);
       for (const goal of goals) {
         await storage.deleteGoal(goal.id);
       }
-      
+
       // Delete budgets and budget categories
       const budgets = await storage.getBudgets(userId);
       for (const budget of budgets) {
@@ -1197,10 +1240,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         await storage.deleteBudget(budget.id);
       }
-      
+
       // Reset user's monthly salary to null
       await storage.updateUser(userId, { monthlySalary: null });
-      
+
       res.status(200).json({ 
         message: "Successfully deleted all financial data",
         details: {
