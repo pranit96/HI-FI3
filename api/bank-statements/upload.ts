@@ -3,21 +3,26 @@ import multer from 'multer';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { storage } from '../storage';
-import { parseBankStatement } from '../utils/pdfParser';
+import { parseBankStatement, parseMultipleBankStatements, ParseResult } from '../utils/pdfParser';
 import { categorizeTransactions } from '../utils/groqAI';
 import { withAuth, AuthenticatedRequest } from '../middleware/auth';
+import crypto from 'crypto';
 
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.diskStorage({
     destination: './uploads',
     filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
+      // Create a more secure random filename
+      const randomBytes = crypto.randomBytes(16).toString('hex');
+      const timestamp = Date.now();
+      const filename = `${timestamp}-${randomBytes}${path.extname(file.originalname)}`;
+      cb(null, filename);
     }
   }),
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5 // Allow up to 5 files per upload
   },
   fileFilter: (req, file, cb) => {
     // Only allow PDF files
@@ -55,17 +60,38 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Array to track uploaded files to ensure cleanup
+  const uploadedFiles: Express.Multer.File[] = [];
+
   try {
     // Ensure uploads directory exists
     await ensureUploadsDir();
 
-    // Process file upload
-    await runMiddleware(req, res, upload.single('statement'));
+    // Check if it's a multi-file or single file upload
+    const isMultipleFiles = req.headers['x-upload-type'] === 'multiple';
 
-    // Get uploaded file
-    const file = req.file;
-    if (!file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+    if (isMultipleFiles) {
+      // Process multiple file uploads
+      await runMiddleware(req, res, upload.array('statements', 5));
+      
+      // Access files from req.files
+      if (!Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+      }
+      
+      // Track files for cleanup
+      uploadedFiles.push(...req.files);
+    } else {
+      // Process single file upload for backward compatibility
+      await runMiddleware(req, res, upload.single('statement'));
+      
+      // Access file from req.file
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+      
+      // Track file for cleanup
+      uploadedFiles.push(req.file);
     }
 
     // Get bank account ID from request
@@ -80,61 +106,128 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
       return res.status(403).json({ error: 'Unauthorized access to this bank account' });
     }
 
-    // Parse bank statement
-    const parsedStatement = await parseBankStatement(
-      file.path,
-      req.user.id,
-      bankAccountId
-    );
+    // Process multiple files
+    if (isMultipleFiles && Array.isArray(req.files)) {
+      const filePaths = req.files.map(file => file.path);
+      
+      // Parse multiple bank statements in parallel
+      const parseResults = await parseMultipleBankStatements(
+        filePaths,
+        req.user.id,
+        bankAccountId
+      );
 
-    // Create bank statement record
-    const bankStatement = await storage.createBankStatement({
-      userId: req.user.id,
-      bankAccountId,
-      fileName: file.originalname,
-      startDate: parsedStatement.startDate,
-      endDate: parsedStatement.endDate,
-    });
+      // Process each parsed statement
+      const processedStatements = [];
+      let totalTransactions = 0;
 
-    // Add bank statement ID to transactions
-    const transactions = parsedStatement.transactions.map(t => ({
-      ...t,
-      bankStatementId: bankStatement.id
-    }));
+      for (const result of parseResults.results) {
+        // Create bank statement record
+        const bankStatement = await storage.createBankStatement({
+          userId: req.user.id,
+          bankAccountId,
+          fileName: req.files[parseResults.results.indexOf(result)].originalname,
+          startDate: result.statement.startDate,
+          endDate: result.statement.endDate,
+        });
 
-    // Categorize transactions using Groq AI
-    const categorizedTransactions = await categorizeTransactions(transactions);
+        // Add bank statement ID to transactions
+        const transactions = result.statement.transactions.map(t => ({
+          ...t,
+          bankStatementId: bankStatement.id
+        }));
 
-    // Save transactions to database
-    const savedTransactions = await storage.createManyTransactions(categorizedTransactions);
+        // Categorize transactions using Groq AI
+        const categorizedTransactions = await categorizeTransactions(transactions);
 
-    // Update bank statement as processed
-    await storage.updateBankStatement(bankStatement.id, { processed: true });
+        // Save transactions to database
+        const savedTransactions = await storage.createManyTransactions(categorizedTransactions);
+        totalTransactions += savedTransactions.length;
 
-    // Return success response
-    return res.status(200).json({
-      success: true,
-      bankStatement,
-      transactionCount: savedTransactions.length,
-      accountInfo: {
-        accountNumber: parsedStatement.accountNumber,
-        accountHolderName: parsedStatement.accountHolderName,
-        bankType: parsedStatement.bankType
+        // Update bank statement as processed
+        await storage.updateBankStatement(bankStatement.id, { processed: true });
+
+        processedStatements.push({
+          bankStatement,
+          transactionCount: savedTransactions.length,
+          accountInfo: {
+            accountNumber: result.statement.accountNumber,
+            accountHolderName: result.statement.accountHolderName,
+            bankType: result.statement.bankType
+          },
+          stats: result.stats
+        });
       }
-    });
+
+      // Return success response with combined statistics
+      return res.status(200).json({
+        success: true,
+        processedStatements,
+        combinedStats: {
+          ...parseResults.combinedStats,
+          totalTransactions
+        }
+      });
+    } 
+    // Process single file
+    else {
+      // Parse single bank statement
+      const parseResult = await parseBankStatement(
+        req.file.path,
+        req.user.id,
+        bankAccountId
+      );
+
+      // Create bank statement record
+      const bankStatement = await storage.createBankStatement({
+        userId: req.user.id,
+        bankAccountId,
+        fileName: req.file.originalname,
+        startDate: parseResult.statement.startDate,
+        endDate: parseResult.statement.endDate,
+      });
+
+      // Add bank statement ID to transactions
+      const transactions = parseResult.statement.transactions.map(t => ({
+        ...t,
+        bankStatementId: bankStatement.id
+      }));
+
+      // Categorize transactions using Groq AI
+      const categorizedTransactions = await categorizeTransactions(transactions);
+
+      // Save transactions to database
+      const savedTransactions = await storage.createManyTransactions(categorizedTransactions);
+
+      // Update bank statement as processed
+      await storage.updateBankStatement(bankStatement.id, { processed: true });
+
+      // Return success response
+      return res.status(200).json({
+        success: true,
+        bankStatement,
+        transactionCount: savedTransactions.length,
+        accountInfo: {
+          accountNumber: parseResult.statement.accountNumber,
+          accountHolderName: parseResult.statement.accountHolderName,
+          bankType: parseResult.statement.bankType
+        },
+        stats: parseResult.stats
+      });
+    }
   } catch (error) {
     console.error('Error processing bank statement:', error);
     return res.status(500).json({
       error: 'Failed to process bank statement',
-      message: (error as Error).message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   } finally {
-    // Clean up uploaded file
-    if (req.file) {
+    // Clean up all uploaded files
+    for (const file of uploadedFiles) {
       try {
-        await fs.unlink(req.file.path);
+        await fs.unlink(file.path);
       } catch (err) {
-        console.error('Error deleting temporary file:', err);
+        console.error(`Error deleting temporary file ${file.path}:`, err);
       }
     }
   }

@@ -6,9 +6,11 @@ import { storage } from '../storage';
 // JWT secret from environment variable
 const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-for-development-only';
 
-// Extended request with user property
+// Extended request with user property and multer fields
 export interface AuthenticatedRequest extends NextApiRequest {
   user?: User;
+  file?: Express.Multer.File;
+  files?: Express.Multer.File[];
 }
 
 // Verify JWT token

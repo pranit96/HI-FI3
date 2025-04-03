@@ -2,6 +2,16 @@ import { promises as fs } from 'fs';
 import pdfParse from 'pdf-parse';
 import { InsertTransaction } from '@shared/schema';
 
+// Extended response type with transaction count
+export interface ParseResult {
+  statement: ParsedBankStatement;
+  stats: {
+    transactionCount: number;
+    successRate: number;
+    processingTime: number;
+  };
+}
+
 type PDFData = {
   text: string;
 };
@@ -431,11 +441,16 @@ async function readFileAsText(filePath: string): Promise<string> {
 }
 
 /**
- * Main function to parse bank statement
+ * Main function to parse a single bank statement
  */
-export async function parseBankStatement(filePath: string, userId: number, bankAccountId?: number): Promise<ParsedBankStatement> {
+export async function parseBankStatement(filePath: string, userId: number, bankAccountId?: number): Promise<ParseResult> {
+  const startTime = Date.now();
+  let totalLines = 0;
+  let parsedLines = 0;
+  
   try {
     const content = await readFileAsText(filePath);
+    totalLines = content.split('\n').length;
     
     // Detect bank type
     const bankType = detectBankType(content);
@@ -444,16 +459,91 @@ export async function parseBankStatement(filePath: string, userId: number, bankA
     // and a new bank account will be created if needed
     const accountIdToUse = bankAccountId || 0; // Temporary ID that will be replaced
     
+    let statement: ParsedBankStatement;
+    
     switch (bankType) {
       case BankType.HDFC:
-        return parseHDFCStatement(content, userId, accountIdToUse);
+        statement = parseHDFCStatement(content, userId, accountIdToUse);
+        break;
       case BankType.ICICI:
-        return parseICICIStatement(content, userId, accountIdToUse);
+        statement = parseICICIStatement(content, userId, accountIdToUse);
+        break;
       default:
         throw new Error('Unsupported bank statement format. Currently supported banks: HDFC, ICICI');
     }
+    
+    parsedLines = statement.transactions.length;
+    const processingTime = (Date.now() - startTime) / 1000; // in seconds
+    
+    return {
+      statement,
+      stats: {
+        transactionCount: parsedLines,
+        successRate: totalLines > 0 ? (parsedLines / totalLines) * 100 : 0,
+        processingTime
+      }
+    };
   } catch (error) {
     console.error('Error parsing bank statement:', error);
-    throw error;
+    
+    // Even if there's an error, return statistics about the attempt
+    const processingTime = (Date.now() - startTime) / 1000; // in seconds
+    
+    throw {
+      error: error instanceof Error ? error.message : 'Unknown error during parsing',
+      stats: {
+        transactionCount: 0,
+        successRate: 0,
+        processingTime,
+        totalLines
+      }
+    };
   }
+}
+
+/**
+ * Parse multiple bank statements
+ */
+export async function parseMultipleBankStatements(
+  filePaths: string[], 
+  userId: number, 
+  bankAccountId?: number
+): Promise<{
+  results: ParseResult[];
+  combinedStats: {
+    totalTransactions: number;
+    avgSuccessRate: number;
+    totalProcessingTime: number;
+    fileCount: number;
+  }
+}> {
+  const startTime = Date.now();
+  const results: ParseResult[] = [];
+  
+  for (const filePath of filePaths) {
+    try {
+      const result = await parseBankStatement(filePath, userId, bankAccountId);
+      results.push(result);
+    } catch (error) {
+      console.error(`Error parsing file ${filePath}:`, error);
+      // Continue with other files even if one fails
+    }
+  }
+  
+  // Calculate combined statistics
+  const totalProcessingTime = (Date.now() - startTime) / 1000; // in seconds
+  const totalTransactions = results.reduce((sum, result) => sum + result.stats.transactionCount, 0);
+  const avgSuccessRate = results.length > 0 
+    ? results.reduce((sum, result) => sum + result.stats.successRate, 0) / results.length 
+    : 0;
+  
+  return {
+    results,
+    combinedStats: {
+      totalTransactions,
+      avgSuccessRate,
+      totalProcessingTime,
+      fileCount: results.length
+    }
+  };
 }
