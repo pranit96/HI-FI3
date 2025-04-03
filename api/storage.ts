@@ -12,6 +12,14 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, SQL } from "drizzle-orm";
+import { 
+  encryptionService, 
+  sensitiveUserFields,
+  sensitiveBankAccountFields,
+  sensitiveTransactionFields,
+  sensitiveGoalFields,
+  sensitiveBudgetFields
+} from "./services/encryptionService";
 
 export interface IStorage {
   // User methods
@@ -96,17 +104,27 @@ export class DatabaseStorage implements IStorage {
   
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    if (!user) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(user, sensitiveUserFields);
   }
   
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    if (!user) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(user, sensitiveUserFields);
   }
   
   async createUser(userData: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(userData).returning();
-    return user;
+    // Encrypt sensitive fields before storing
+    const encryptedUserData = encryptionService.encryptObject(userData, sensitiveUserFields);
+    const [user] = await db.insert(users).values(encryptedUserData).returning();
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(user, sensitiveUserFields);
   }
   
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
@@ -135,8 +153,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createBankAccount(accountData: InsertBankAccount): Promise<BankAccount> {
-    const [account] = await db.insert(bankAccounts).values(accountData).returning();
-    return account;
+    // Encrypt sensitive fields before storing
+    const encryptedAccountData = encryptionService.encryptObject(accountData, sensitiveBankAccountFields);
+    const [account] = await db.insert(bankAccounts).values(encryptedAccountData).returning();
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(account, sensitiveBankAccountFields);
   }
   
   async updateBankAccount(id: number, accountData: Partial<InsertBankAccount>): Promise<BankAccount | undefined> {
@@ -235,33 +257,57 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    return query.orderBy(desc(transactions.date));
+    const result = await query.orderBy(desc(transactions.date));
+    
+    // Decrypt sensitive fields for each transaction before returning
+    return encryptionService.decryptArray(result, sensitiveTransactionFields);
   }
   
   async getTransaction(id: number): Promise<Transaction | undefined> {
     const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
-    return transaction;
+    if (!transaction) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(transaction, sensitiveTransactionFields);
   }
   
   async createTransaction(transactionData: InsertTransaction): Promise<Transaction> {
-    const [transaction] = await db.insert(transactions).values(transactionData).returning();
-    return transaction;
+    // Encrypt sensitive fields before storing
+    const encryptedTransactionData = encryptionService.encryptObject(transactionData, sensitiveTransactionFields);
+    const [transaction] = await db.insert(transactions).values(encryptedTransactionData).returning();
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(transaction, sensitiveTransactionFields);
   }
   
   async createManyTransactions(transactionsData: InsertTransaction[]): Promise<Transaction[]> {
     if (transactionsData.length === 0) return [];
     
-    const insertedTransactions = await db.insert(transactions).values(transactionsData).returning();
-    return insertedTransactions;
+    // Encrypt sensitive fields for each transaction before storing
+    const encryptedTransactionsData = transactionsData.map(transaction => 
+      encryptionService.encryptObject(transaction, sensitiveTransactionFields)
+    );
+    
+    const insertedTransactions = await db.insert(transactions).values(encryptedTransactionsData).returning();
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptArray(insertedTransactions, sensitiveTransactionFields);
   }
   
   async updateTransaction(id: number, transactionData: Partial<InsertTransaction>): Promise<Transaction | undefined> {
+    // Encrypt sensitive fields in the update data if present
+    const encryptedTransactionData = encryptionService.encryptObject(transactionData, sensitiveTransactionFields);
+    
     const [updatedTransaction] = await db
       .update(transactions)
-      .set(transactionData)
+      .set(encryptedTransactionData)
       .where(eq(transactions.id, id))
       .returning();
-    return updatedTransaction;
+    
+    if (!updatedTransaction) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(updatedTransaction, sensitiveTransactionFields);
   }
   
   async deleteTransaction(id: number): Promise<boolean> {
@@ -291,26 +337,43 @@ export class DatabaseStorage implements IStorage {
   /*** Goal methods ***/
   
   async getGoals(userId: number): Promise<Goal[]> {
-    return db.select().from(goals).where(eq(goals.userId, userId));
+    const results = await db.select().from(goals).where(eq(goals.userId, userId));
+    
+    // Decrypt sensitive fields for each goal before returning
+    return encryptionService.decryptArray(results, sensitiveGoalFields);
   }
   
   async getGoal(id: number): Promise<Goal | undefined> {
     const [goal] = await db.select().from(goals).where(eq(goals.id, id));
-    return goal;
+    if (!goal) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(goal, sensitiveGoalFields);
   }
   
   async createGoal(goalData: InsertGoal): Promise<Goal> {
-    const [goal] = await db.insert(goals).values(goalData).returning();
-    return goal;
+    // Encrypt sensitive fields before storing
+    const encryptedGoalData = encryptionService.encryptObject(goalData, sensitiveGoalFields);
+    const [goal] = await db.insert(goals).values(encryptedGoalData).returning();
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(goal, sensitiveGoalFields);
   }
   
   async updateGoal(id: number, goalData: Partial<InsertGoal>): Promise<Goal | undefined> {
+    // Encrypt sensitive fields in the update data if present
+    const encryptedGoalData = encryptionService.encryptObject(goalData, sensitiveGoalFields);
+    
     const [updatedGoal] = await db
       .update(goals)
-      .set(goalData)
+      .set(encryptedGoalData)
       .where(eq(goals.id, id))
       .returning();
-    return updatedGoal;
+    
+    if (!updatedGoal) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(updatedGoal, sensitiveGoalFields);
   }
   
   async deleteGoal(id: number): Promise<boolean> {
@@ -374,30 +437,47 @@ export class DatabaseStorage implements IStorage {
   /*** Budget methods ***/
   
   async getBudgets(userId: number): Promise<Budget[]> {
-    return db
+    const results = await db
       .select()
       .from(budgets)
       .where(eq(budgets.userId, userId))
       .orderBy(desc(budgets.createdAt));
+      
+    // Decrypt sensitive fields for each budget before returning
+    return encryptionService.decryptArray(results, sensitiveBudgetFields);
   }
   
   async getBudget(id: number): Promise<Budget | undefined> {
     const [budget] = await db.select().from(budgets).where(eq(budgets.id, id));
-    return budget;
+    if (!budget) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(budget, sensitiveBudgetFields);
   }
   
   async createBudget(budgetData: InsertBudget): Promise<Budget> {
-    const [budget] = await db.insert(budgets).values(budgetData).returning();
-    return budget;
+    // Encrypt sensitive fields before storing
+    const encryptedBudgetData = encryptionService.encryptObject(budgetData, sensitiveBudgetFields);
+    const [budget] = await db.insert(budgets).values(encryptedBudgetData).returning();
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(budget, sensitiveBudgetFields);
   }
   
   async updateBudget(id: number, budgetData: Partial<InsertBudget>): Promise<Budget | undefined> {
+    // Encrypt sensitive fields in the update data if present
+    const encryptedBudgetData = encryptionService.encryptObject(budgetData, sensitiveBudgetFields);
+    
     const [updatedBudget] = await db
       .update(budgets)
-      .set(budgetData)
+      .set(encryptedBudgetData)
       .where(eq(budgets.id, id))
       .returning();
-    return updatedBudget;
+    
+    if (!updatedBudget) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(updatedBudget, sensitiveBudgetFields);
   }
   
   async deleteBudget(id: number): Promise<boolean> {
@@ -415,29 +495,46 @@ export class DatabaseStorage implements IStorage {
   /*** Budget category methods ***/
   
   async getBudgetCategories(budgetId: number): Promise<BudgetCategory[]> {
-    return db
+    const results = await db
       .select()
       .from(budgetCategories)
       .where(eq(budgetCategories.budgetId, budgetId));
+      
+    // Decrypt sensitive fields for each budget category before returning
+    return encryptionService.decryptArray(results, sensitiveBudgetFields);
   }
   
   async getBudgetCategory(id: number): Promise<BudgetCategory | undefined> {
     const [budgetCategory] = await db.select().from(budgetCategories).where(eq(budgetCategories.id, id));
-    return budgetCategory;
+    if (!budgetCategory) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(budgetCategory, sensitiveBudgetFields);
   }
   
   async createBudgetCategory(budgetCategoryData: InsertBudgetCategory): Promise<BudgetCategory> {
-    const [budgetCategory] = await db.insert(budgetCategories).values(budgetCategoryData).returning();
-    return budgetCategory;
+    // Encrypt sensitive fields before storing
+    const encryptedBudgetCategoryData = encryptionService.encryptObject(budgetCategoryData, sensitiveBudgetFields);
+    const [budgetCategory] = await db.insert(budgetCategories).values(encryptedBudgetCategoryData).returning();
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(budgetCategory, sensitiveBudgetFields);
   }
   
   async updateBudgetCategory(id: number, budgetCategoryData: Partial<InsertBudgetCategory>): Promise<BudgetCategory | undefined> {
+    // Encrypt sensitive fields in the update data if present
+    const encryptedBudgetCategoryData = encryptionService.encryptObject(budgetCategoryData, sensitiveBudgetFields);
+    
     const [updatedBudgetCategory] = await db
       .update(budgetCategories)
-      .set(budgetCategoryData)
+      .set(encryptedBudgetCategoryData)
       .where(eq(budgetCategories.id, id))
       .returning();
-    return updatedBudgetCategory;
+    
+    if (!updatedBudgetCategory) return undefined;
+    
+    // Decrypt sensitive fields before returning
+    return encryptionService.decryptObject(updatedBudgetCategory, sensitiveBudgetFields);
   }
   
   async deleteBudgetCategory(id: number): Promise<boolean> {
