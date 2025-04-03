@@ -24,7 +24,7 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import { z } from "zod";
 import { ValidationError } from "zod-validation-error";
-import jwt from 'jsonwebtoken'; // Added import for JWT
+import jwt from 'jsonwebtoken';
 import { Request } from 'express';
 
 
@@ -64,7 +64,7 @@ declare module 'express-session' {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; //Added JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // CORS configuration for credentials
@@ -106,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             delete sanitizedResponse.user;
             delete sanitizedResponse.password;
             delete sanitizedResponse.email;
-            delete sanitizedResponse.confirmPassword; // Added to handle registration route
+            delete sanitizedResponse.confirmPassword;
 
 
             logLine += ` :: ${JSON.stringify(sanitizedResponse)}`;
@@ -239,13 +239,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check auth status
   app.get("/api/auth/me", async (req: Request, res: Response) => {
     try {
-      if (!req.session.userId) {
+      const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+
+      if (!token) {
         return res.status(401).json({ message: "Not authenticated" });
       }
 
-      const user = await storage.getUser(req.session.userId);
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
+      const user = await storage.getUser(decoded.id);
+
       if (!user) {
-        req.session.destroy(() => {});
         return res.status(401).json({ message: "User not found" });
       }
 
@@ -254,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json(userWithoutPassword);
     } catch (error) {
       console.error("Auth check error:", error);
-      res.status(500).json({ message: "Server error" });
+      res.status(401).json({ message: "Invalid or expired token" });
     }
   });
 
