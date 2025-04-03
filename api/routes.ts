@@ -53,12 +53,24 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
+// Define session interface extension
+declare module 'express-session' {
+  interface SessionData {
+    userId: number;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup session store
   const MemorySessionStore = MemoryStore(session);
   app.use(
     session({
-      cookie: { maxAge: 86400000 }, // 24 hours
+      cookie: { 
+        maxAge: 86400000, // 24 hours
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
+      },
       store: new MemorySessionStore({
         checkPeriod: 86400000 // Prune expired entries every 24h
       }),

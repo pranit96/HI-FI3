@@ -1,5 +1,4 @@
-import { Switch, Route } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { Switch, Route, Redirect } from "wouter";
 import Dashboard from "@/pages/Dashboard";
 import Transactions from "@/pages/Transactions";
 import Analytics from "@/pages/Analytics";
@@ -13,27 +12,13 @@ import { useState, useEffect } from "react";
 import OnboardingForm from "@/components/onboarding/OnboardingForm";
 import IntroScreen from "@/components/intro/IntroScreen";
 import { Toaster } from "@/components/ui/toaster";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-
-type User = {
-  id: number;
-  name: string;
-  email: string;
-  currency: string;
-  monthlySalary: number | null;
-  createdAt: string;
-};
+import { useAuth } from "@/hooks/use-auth-simple";
+import ProtectedRoute from "@/lib/ProtectedRoute";
 
 function App() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [firstVisit, setFirstVisit] = useState<boolean>(true);
-
-  // Check if user is authenticated
-  const { data: user, isLoading, isError } = useQuery<User | null>({
-    queryKey: ['/api/auth/me'],
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  const { user } = useAuth();
 
   useEffect(() => {
     // Check if this is the first visit
@@ -61,7 +46,7 @@ function App() {
 
   // Show intro screen on first visit
   if (firstVisit && !user) {
-    return <IntroScreen />;
+    return <IntroScreen handleComplete={handleIntroComplete} />;
   }
 
   // If user is authenticated but onboarding is not complete, show onboarding form
@@ -72,57 +57,34 @@ function App() {
   return (
     <>
       <Switch>
-        <Route path="/">
-          {user ? (
-            <DashboardLayout>
-              <Dashboard />
-            </DashboardLayout>
-          ) : <Login />}
-        </Route>
+        {/* Public routes */}
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
-        <Route path="/dashboard">
-          {user ? (
-            <DashboardLayout>
-              <Dashboard />
-            </DashboardLayout>
-          ) : <Login />}
-        </Route>
-        <Route path="/transactions">
-          {user ? (
-            <DashboardLayout>
-              <Transactions />
-            </DashboardLayout>
-          ) : <Login />}
-        </Route>
-        <Route path="/analytics">
-          {user ? (
-            <DashboardLayout>
-              <Analytics />
-            </DashboardLayout>
-          ) : <Login />}
-        </Route>
-        <Route path="/goals">
-          {user ? (
-            <DashboardLayout>
-              <Goals />
-            </DashboardLayout>
-          ) : <Login />}
-        </Route>
-        <Route path="/settings">
-          {user ? (
-            <DashboardLayout>
-              <Settings />
-            </DashboardLayout>
-          ) : <Login />}
-        </Route>
-        <Route path="/admin">
-          {user ? (
-            <DashboardLayout>
-              <Admin />
-            </DashboardLayout>
-          ) : <Login />}
-        </Route>
+        
+        {/* Protected routes */}
+        <ProtectedRoute path="/">
+          <Dashboard />
+        </ProtectedRoute>
+        <ProtectedRoute path="/dashboard">
+          <Dashboard />
+        </ProtectedRoute>
+        <ProtectedRoute path="/transactions">
+          <Transactions />
+        </ProtectedRoute>
+        <ProtectedRoute path="/analytics">
+          <Analytics />
+        </ProtectedRoute>
+        <ProtectedRoute path="/goals">
+          <Goals />
+        </ProtectedRoute>
+        <ProtectedRoute path="/settings">
+          <Settings />
+        </ProtectedRoute>
+        <ProtectedRoute path="/admin">
+          <Admin />
+        </ProtectedRoute>
+        
+        {/* 404 route */}
         <Route component={NotFound} />
       </Switch>
       

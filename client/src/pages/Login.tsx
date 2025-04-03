@@ -1,24 +1,21 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import AuthForm from "@/components/auth/AuthForm";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useAuth } from "@/hooks/use-auth-simple";
 
 export default function Login() {
   const [, navigate] = useLocation();
   
-  // Check if user is already authenticated
-  const { data: user, isLoading } = useQuery({
-    queryKey: ['/api/auth/me'],
-    retry: false,
-  });
+  // Use our auth hook to check if user is already authenticated
+  const { user, isLoading } = useAuth();
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
-    if (user && !isLoading) {
+    if (user) {
       navigate("/dashboard");
     }
-  }, [user, isLoading, navigate]);
+  }, [user, navigate]);
 
   // If still checking auth status, show a loading state
   if (isLoading) {

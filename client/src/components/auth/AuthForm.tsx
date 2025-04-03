@@ -2,10 +2,9 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth-simple";
 
 import {
   Card,
@@ -52,8 +51,8 @@ type Props = {
 };
 
 export default function AuthForm({ defaultTab = "login" }: Props) {
-  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"login" | "register">(defaultTab);
+  const { login, register, isLoading } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -80,56 +79,24 @@ export default function AuthForm({ defaultTab = "login" }: Props) {
   // Handle login submission
   const onLoginSubmit = async (values: z.infer<typeof loginSchema>) => {
     try {
-      setIsLoading(true);
-      await apiRequest("POST", "/api/auth/login", values);
-      
-      // Refetch user data
-      await queryClient.refetchQueries({ queryKey: ['/api/auth/me'] });
-      
-      toast({
-        title: "Login successful",
-        description: "Welcome back to FinSavvy!",
-        variant: "success",
-      });
-      
+      const userData = await login(values);
+      console.log("Login successful for:", values.email);
       navigate("/dashboard");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
-      toast({
-        title: "Login failed",
-        description: error.message || "Invalid email or password",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      // Toast is already handled in the useAuth hook
     }
   };
 
   // Handle registration submission
   const onRegisterSubmit = async (values: z.infer<typeof registerSchema>) => {
     try {
-      setIsLoading(true);
-      await apiRequest("POST", "/api/auth/register", values);
-      
-      // Refetch user data
-      await queryClient.refetchQueries({ queryKey: ['/api/auth/me'] });
-      
-      toast({
-        title: "Registration successful",
-        description: "Welcome to FinSavvy!",
-        variant: "success",
-      });
-      
+      const userData = await register(values);
+      console.log("Registration successful for:", values.email);
       navigate("/dashboard");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration error:", error);
-      toast({
-        title: "Registration failed",
-        description: error.message || "Failed to create account",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      // Toast is already handled in the useAuth hook
     }
   };
 

@@ -3,7 +3,11 @@ import { Button } from '@/components/ui/button';
 import { useLocation } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 
-const IntroScreen = () => {
+interface IntroScreenProps {
+  handleComplete?: () => void;
+}
+
+const IntroScreen = ({ handleComplete }: IntroScreenProps) => {
   const [active, setActive] = useState(true);
   const [grains, setGrains] = useState<Array<{ id: number; x: number; y: number; size: number; opacity: number }>>([]);
   const [, navigate] = useLocation();
@@ -106,6 +110,11 @@ const IntroScreen = () => {
     });
     
     setActive(false);
+    
+    // Call the handleComplete prop if provided
+    if (handleComplete) {
+      handleComplete();
+    }
     
     // Redirect to login after animation completes
     setTimeout(() => {
