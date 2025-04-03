@@ -23,6 +23,9 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import { z } from "zod";
 import { ValidationError } from "zod-validation-error";
+import jwt from 'jsonwebtoken'; // Added import for JWT
+import { Request } from 'express';
+
 
 // Setup uploads directory
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -59,6 +62,8 @@ declare module 'express-session' {
     userId: number;
   }
 }
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; //Added JWT Secret
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup session store
@@ -212,12 +217,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
+      // Generate JWT token
+      const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
       // Set session
       req.session.userId = user.id;
 
-      // Return user without password
+      // Return user without password and token
       const { password: _, ...userWithoutPassword } = user;
-      res.status(200).json(userWithoutPassword);
+      res.status(200).json({
+        user: userWithoutPassword,
+        token
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         const validationError = new ValidationError(error);
@@ -893,7 +904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(200).json(updatedBudget);
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      if(error instanceof z.ZodError) {
         const validationError = new ValidationError(error);
         return res.status(400).json({ message: validationError.message });
       }
