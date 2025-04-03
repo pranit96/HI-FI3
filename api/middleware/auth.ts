@@ -13,14 +13,10 @@ export interface AuthenticatedRequest extends NextApiRequest {
   files?: Express.Multer.File[];
 }
 
-// Verify JWT token
 const verifyToken = async (token: string): Promise<User | null> => {
   try {
-    // Verify and decode token
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
-    
-    // Get user from database
-    const user = await storage.getUser(decoded.id);
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number }; // Match token payload
+    const user = await storage.getUser(decoded.userId); // Use correct property name
     return user || null;
   } catch (error) {
     console.error('Token verification failed:', error);
@@ -28,26 +24,25 @@ const verifyToken = async (token: string): Promise<User | null> => {
   }
 };
 
-// Extract token from request
+// Update header extraction to be case-insensitive
 const getTokenFromRequest = (req: NextApiRequest): string | null => {
-  // First check Authorization header
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
-  }
+  const headers = req.headers;
   
-  // Then check auth-token header (used by client)
-  const authTokenHeader = req.headers['auth-token'];
-  if (authTokenHeader) {
-    return Array.isArray(authTokenHeader) ? authTokenHeader[0] : authTokenHeader;
+  // Check Authorization header (case-insensitive)
+  const authHeader = headers.authorization || headers.Authorization;
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
   }
-  
-  // Finally check cookies
-  if (req.cookies && req.cookies.token) {
-    return req.cookies.token;
+
+  // Check all case variations for auth-token
+  const authTokenKey = Object.keys(headers).find(k => k.toLowerCase() === 'auth-token');
+  if (authTokenKey) {
+    const token = headers[authTokenKey];
+    return Array.isArray(token) ? token[0] : token;
   }
-  
-  return null;
+
+  // Check cookies
+  return req.cookies?.token || null;
 };
 
 // Authentication middleware
