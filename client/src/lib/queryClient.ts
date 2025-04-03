@@ -66,4 +66,11 @@ export const queryClient = new QueryClient({
       retry: false,
     },
   },
+  headers: () => {
+    const token = localStorage.getItem('auth-token');
+    return {
+      Authorization: token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json',
+    };
+  },
 });
