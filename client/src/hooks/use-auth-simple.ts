@@ -49,14 +49,14 @@ export function useAuth() {
           credentials: "include"
         });
 
-        if (response.status === 401) {
-          localStorage.removeItem('auth-token');
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('auth-token');
+          }
           return null;
         }
 
-        if (!response.ok) throw new Error('Failed to fetch user');
-
-        return await response.json();
+        return response.json();
       } catch (error) {
         console.error('Error fetching user:', error);
         return null;
@@ -68,7 +68,7 @@ export function useAuth() {
   const login = useCallback(async (credentials: LoginCredentials) => {
     try {
       setIsLoading(true);
-      
+
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,45 +83,10 @@ export function useAuth() {
 
       const { token, user } = await response.json();
       localStorage.setItem('auth-token', token);
-      
-      // Update user data immediately
+
+      // Update query cache
       queryClient.setQueryData(['currentUser'], user);
-      
-      toast({
-        title: "Login successful",
-        description: "Welcome back!",
-        variant: "success",
-      });
 
-      navigate('/dashboard');
-
-      // Update query client configuration
-      queryClient.setDefaultOptions({
-        queries: {
-          queryFn: async ({ queryKey }) => {
-            const currentToken = localStorage.getItem('auth-token');
-            const response = await fetch(queryKey[0] as string, {
-              headers: {
-                'Authorization': `Bearer ${currentToken}`,
-                'auth-token': currentToken || ''
-              },
-              credentials: 'include'
-            });
-
-            if (response.status === 401) {
-              localStorage.removeItem('auth-token');
-              queryClient.setQueryData(['currentUser'], null);
-              throw new Error('Session expired');
-            }
-
-            if (!response.ok) throw new Error('Request failed');
-            return response.json();
-          }
-        }
-      });
-
-      queryClient.setQueryData(['currentUser'], user);
-      
       toast({
         title: "Login successful",
         description: "Welcome back!",
@@ -146,11 +111,12 @@ export function useAuth() {
   const register = useCallback(async (credentials: RegisterCredentials) => {
     try {
       setIsLoading(true);
-      
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials)
+        body: JSON.stringify(credentials),
+        credentials: "include"
       });
 
       if (!response.ok) {
@@ -161,7 +127,7 @@ export function useAuth() {
       const { token, user } = await response.json();
       localStorage.setItem('auth-token', token);
       queryClient.setQueryData(['currentUser'], user);
-      
+
       toast({
         title: "Registration successful",
         description: "Welcome!",
@@ -186,18 +152,16 @@ export function useAuth() {
   const logout = useCallback(async () => {
     try {
       setIsLoading(true);
-      await fetch("/api/auth/logout", { method: "POST" });
-      
       localStorage.removeItem('auth-token');
-      queryClient.clear();
       queryClient.setQueryData(['currentUser'], null);
-      
+      await queryClient.invalidateQueries(['currentUser']);
+
       toast({
         title: "Logged out",
         description: "You have been successfully logged out",
         variant: "success",
       });
-      
+
       navigate("/login");
     } catch (error: any) {
       toast({

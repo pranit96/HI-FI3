@@ -81,12 +81,11 @@ export default function AuthForm({ defaultTab = "login" }: Props) {
   // Handle login submission
   const onLoginSubmit = async (values: z.infer<typeof loginSchema>) => {
     try {
-      const userData = await login(values);
-      console.log("Login successful for:", values.email);
-      navigate("/dashboard");
+      await login(values);
+      // Navigation is handled in useAuth hook
     } catch (error: any) {
       console.error("Login error:", error);
-      // Toast is already handled in the useAuth hook
+      // Toast is handled in useAuth hook
     }
   };
 

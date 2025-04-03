@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react";
 import { Route, Redirect } from "wouter";
 import { useAuth } from "@/hooks/use-auth-simple";
@@ -22,18 +23,10 @@ export function ProtectedRoute({ path, children }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    return (
-      <Route path={path}>
-        <Redirect to="/login" />
-      </Route>
-    );
+    return <Redirect to="/login" />;
   }
 
-  return (
-    <Route path={path}>
-      {children}
-    </Route>
-  );
+  return <Route path={path}>{children}</Route>;
 }
 
 export default ProtectedRoute;
