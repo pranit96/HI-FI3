@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { registerRoutes } from '../api/routes';
 import path from 'path';
+import { promises as fs } from 'fs';
 
 const app = express();
 app.use(express.json());
