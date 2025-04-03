@@ -89,15 +89,15 @@ export function useAuth() {
         throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
       }
 
-      // Get user data and token from response
-      const { user, token } = await response.json();
-      console.log("Login successful, user data received:", user);
+      // Get response data
+      const responseData = await response.json();
+      console.log("Login successful, response received:", responseData);
       
       // Store token
-      localStorage.setItem('auth-token', token);
+      localStorage.setItem('auth-token', responseData.token);
       
-      // Update query cache
-      await queryClient.setQueryData(['/api/auth/me'], user);
+      // Update query cache with user data
+      await queryClient.setQueryData(['/api/auth/me'], responseData.user);
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       
       toast({
@@ -106,7 +106,7 @@ export function useAuth() {
         variant: "success",
       });
       
-      return userData;
+      return responseData.user;
     } catch (error: any) {
       console.error("Login error:", error);
       toast({
