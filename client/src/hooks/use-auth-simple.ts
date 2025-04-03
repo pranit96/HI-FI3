@@ -99,40 +99,55 @@ export function useAuth() {
       
       // Update query cache with user data
       await queryClient.setQueryData(['/api/auth/me'], responseData.user);
-      
-      // Set default headers for the queryClient
-      const defaultHeaders = {
-        'Authorization': `Bearer ${token}`,
-        'auth-token': token
+
+      // Configure global fetch defaults
+      const defaultInit: RequestInit = {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'auth-token': token
+        }
       };
 
+      // Set new defaults for all queries
       queryClient.setDefaultOptions({
         queries: {
           queryFn: async ({ queryKey }) => {
             const response = await fetch(queryKey[0] as string, {
-              headers: defaultHeaders,
-              credentials: 'include'
+              ...defaultInit,
+              method: 'GET'
             });
+            
             if (response.status === 401) {
               localStorage.removeItem('auth-token');
+              queryClient.setQueryData(['/api/auth/me'], null);
               return null;
             }
-            if (!response.ok) throw new Error('Network response was not ok');
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             return response.json();
-          }
+          },
+          retry: 1
         },
         mutations: {
           mutationFn: async ({ endpoint, method = 'POST', data }) => {
             const response = await fetch(endpoint, {
+              ...defaultInit,
               method,
               headers: {
-                ...defaultHeaders,
+                ...defaultInit.headers,
                 'Content-Type': 'application/json'
               },
-              credentials: 'include',
               body: JSON.stringify(data)
             });
-            if (!response.ok) throw new Error('Network response was not ok');
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             return response.json();
           }
         }
