@@ -1091,6 +1091,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // DATA MANAGEMENT ROUTES
+  
+  // Delete all user transactions
+  app.delete("/api/user-data/transactions", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      
+      // Get all user transactions
+      const transactions = await storage.getTransactions(userId);
+      
+      // Delete each transaction
+      let deletedCount = 0;
+      for (const transaction of transactions) {
+        await storage.deleteTransaction(transaction.id);
+        deletedCount++;
+      }
+      
+      res.status(200).json({ 
+        message: `Successfully deleted ${deletedCount} transactions`, 
+        count: deletedCount 
+      });
+    } catch (error) {
+      console.error("Delete transactions error:", error);
+      res.status(500).json({ message: "Failed to delete transactions" });
+    }
+  });
+  
+  // Delete all bank statements
+  app.delete("/api/user-data/statements", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      
+      // Get all user bank statements
+      const statements = await storage.getBankStatements(userId);
+      
+      // Delete each statement
+      let deletedCount = 0;
+      for (const statement of statements) {
+        await storage.deleteBankStatement(statement.id);
+        deletedCount++;
+      }
+      
+      res.status(200).json({ 
+        message: `Successfully deleted ${deletedCount} bank statements`, 
+        count: deletedCount 
+      });
+    } catch (error) {
+      console.error("Delete bank statements error:", error);
+      res.status(500).json({ message: "Failed to delete bank statements" });
+    }
+  });
+  
+  // Delete all user financial data
+  app.delete("/api/user-data/all", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      
+      // Delete transactions
+      const transactions = await storage.getTransactions(userId);
+      for (const transaction of transactions) {
+        await storage.deleteTransaction(transaction.id);
+      }
+      
+      // Delete bank statements
+      const statements = await storage.getBankStatements(userId);
+      for (const statement of statements) {
+        await storage.deleteBankStatement(statement.id);
+      }
+      
+      // Delete insights
+      const insights = await storage.getInsights(userId);
+      for (const insight of insights) {
+        await storage.deleteInsight(insight.id);
+      }
+      
+      // Delete goals
+      const goals = await storage.getGoals(userId);
+      for (const goal of goals) {
+        await storage.deleteGoal(goal.id);
+      }
+      
+      // Delete budgets and budget categories
+      const budgets = await storage.getBudgets(userId);
+      for (const budget of budgets) {
+        const budgetCategories = await storage.getBudgetCategories(budget.id);
+        for (const category of budgetCategories) {
+          await storage.deleteBudgetCategory(category.id);
+        }
+        await storage.deleteBudget(budget.id);
+      }
+      
+      // Reset user's monthly salary to null
+      await storage.updateUser(userId, { monthlySalary: null });
+      
+      res.status(200).json({ 
+        message: "Successfully deleted all financial data",
+        details: {
+          transactions: transactions.length,
+          statements: statements.length,
+          insights: insights.length,
+          goals: goals.length,
+          budgets: budgets.length
+        }
+      });
+    } catch (error) {
+      console.error("Delete all financial data error:", error);
+      res.status(500).json({ message: "Failed to delete financial data" });
+    }
+  });
 
   return createServer(app);
 }

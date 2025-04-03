@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/dashboard/Header";
 import Sidebar from "@/components/dashboard/Sidebar";
 import FinancialOverview from "@/components/dashboard/FinancialOverview";
-import UploadSection from "@/components/dashboard/UploadSection";
 import SpendingChart from "@/components/dashboard/SpendingChart";
 import AIInsights from "@/components/dashboard/AIInsights";
 import CategoryChart from "@/components/dashboard/CategoryChart";
@@ -57,13 +56,8 @@ export default function Dashboard() {
         <div className="lg:col-span-9 xl:col-span-10 space-y-6">
           <FinancialOverview />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-1">
-              <UploadSection />
-            </div>
-            <div className="lg:col-span-2">
-              <SpendingChart />
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
+            <SpendingChart />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

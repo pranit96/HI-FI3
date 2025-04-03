@@ -32,6 +32,7 @@ export interface IStorage {
   getBankStatement(id: number): Promise<BankStatement | undefined>;
   createBankStatement(statement: InsertBankStatement): Promise<BankStatement>;
   updateBankStatement(id: number, statement: Partial<InsertBankStatement>): Promise<BankStatement | undefined>;
+  deleteBankStatement(id: number): Promise<boolean>;
   
   // Transaction methods
   getTransactions(userId: number, filters?: { 
@@ -45,6 +46,7 @@ export interface IStorage {
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   updateTransaction(id: number, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined>;
   createManyTransactions(transactions: InsertTransaction[]): Promise<Transaction[]>;
+  deleteTransaction(id: number): Promise<boolean>;
   
   // Category methods
   getCategories(): Promise<Category[]>;
@@ -176,6 +178,14 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return updatedStatement;
   }
+  
+  async deleteBankStatement(id: number): Promise<boolean> {
+    const [deleted] = await db
+      .delete(bankStatements)
+      .where(eq(bankStatements.id, id))
+      .returning({ id: bankStatements.id });
+    return !!deleted;
+  }
 
   /*** Transaction methods ***/
   
@@ -242,6 +252,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(transactions.id, id))
       .returning();
     return updatedTransaction;
+  }
+  
+  async deleteTransaction(id: number): Promise<boolean> {
+    const [deleted] = await db
+      .delete(transactions)
+      .where(eq(transactions.id, id))
+      .returning({ id: transactions.id });
+    return !!deleted;
   }
 
   /*** Category methods ***/

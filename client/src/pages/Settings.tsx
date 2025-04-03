@@ -42,7 +42,7 @@ type User = {
   name: string;
   email: string;
   currency: string;
-  monthlySalary: number | null;
+  monthlySalary: string | null; // Changed to string to match form
 };
 
 type NotificationPreference = {
@@ -58,12 +58,8 @@ const profileFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
   monthlySalary: z
-    .string()
-    .min(1, "Monthly salary is required")
-    .transform((val) => parseFloat(val))
-    .refine((val) => !isNaN(val) && val > 0, {
-      message: "Monthly salary must be a positive number",
-    }),
+    .string() // Keep as string for form handling
+    .min(1, "Monthly salary is required"),
   currency: z.string().min(1, "Currency is required"),
 });
 
@@ -103,7 +99,7 @@ export default function Settings() {
     defaultValues: {
       name: "",
       email: "",
-      monthlySalary: "",
+      monthlySalary: "0", // Changed from empty string to "0" to match type
       currency: "",
     },
   });
@@ -220,6 +216,51 @@ export default function Settings() {
       });
     },
   });
+  
+  // Delete user data mutation
+  const deleteDataMutation = useMutation({
+    mutationFn: async (type: 'transactions' | 'statements' | 'all') => {
+      return apiRequest("DELETE", `/api/user-data/${type}`);
+    },
+    onSuccess: (_, type) => {
+      // Define different success messages based on what was deleted
+      const messages = {
+        transactions: "All transaction data has been deleted",
+        statements: "All bank statements have been deleted",
+        all: "All your financial data has been deleted"
+      };
+      
+      toast({
+        title: "Data deleted",
+        description: messages[type],
+        variant: "success",
+      });
+      
+      // Invalidate relevant queries
+      if (type === 'transactions' || type === 'all') {
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/analytics/income-vs-expenses'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/analytics/expenses-by-category'] });
+      }
+      
+      if (type === 'statements' || type === 'all') {
+        queryClient.invalidateQueries({ queryKey: ['/api/bank-statements'] });
+      }
+      
+      if (type === 'all') {
+        queryClient.invalidateQueries({ queryKey: ['/api/goals'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/insights'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/budgets'] });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete data",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Handle profile form submission
   const onProfileSubmit = (values: z.infer<typeof profileFormSchema>) => {
@@ -276,6 +317,7 @@ export default function Settings() {
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="privacy">Data & Privacy</TabsTrigger>
           </TabsList>
 
           {/* Profile Tab */}
@@ -579,6 +621,126 @@ export default function Settings() {
                     </Button>
                   </form>
                 </Form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Data & Privacy Tab */}
+          <TabsContent value="privacy">
+            <Card>
+              <CardHeader>
+                <CardTitle>Data & Privacy</CardTitle>
+                <CardDescription>
+                  Manage your data and understand our privacy practices
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Data Management</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    You can delete various parts of your data from our system. This action cannot be undone.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <h4 className="font-medium">Transaction Data</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Delete all your transactions, but keep other data (statements, goals, etc.)
+                      </p>
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => deleteDataMutation.mutate('transactions')}
+                        disabled={deleteDataMutation.isPending}
+                        className="w-full"
+                      >
+                        {deleteDataMutation.isPending ? "Deleting..." : "Delete Transactions"}
+                      </Button>
+                    </div>
+                    
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <h4 className="font-medium">Statement Data</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Delete all your uploaded bank statements and their processed data
+                      </p>
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => deleteDataMutation.mutate('statements')}
+                        disabled={deleteDataMutation.isPending}
+                        className="w-full"
+                      >
+                        {deleteDataMutation.isPending ? "Deleting..." : "Delete Statements"}
+                      </Button>
+                    </div>
+                    
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <h4 className="font-medium">All Financial Data</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Delete all your financial data including transactions, statements, goals, etc.
+                      </p>
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => {
+                          if (confirm("Are you sure you want to delete ALL your financial data? This cannot be undone.")) {
+                            deleteDataMutation.mutate('all');
+                          }
+                        }}
+                        disabled={deleteDataMutation.isPending}
+                        className="w-full"
+                      >
+                        {deleteDataMutation.isPending ? "Deleting..." : "Delete All Data"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Privacy Policy</h3>
+                  <div className="rounded-lg border p-4 bg-muted/50 max-h-64 overflow-y-auto">
+                    <h4 className="font-semibold mb-2">How We Handle Your Data</h4>
+                    <p className="text-sm mb-3">
+                      At Finvue, we take your privacy and data security seriously. Here's how we handle your financial information:
+                    </p>
+                    
+                    <h5 className="font-medium text-sm mb-1">Data Collection</h5>
+                    <p className="text-sm mb-2">
+                      We collect information you explicitly provide, such as bank statements, financial goals, and account details.
+                      PDF bank statements are processed securely and then immediately deleted from our servers once the processing is complete.
+                    </p>
+                    
+                    <h5 className="font-medium text-sm mb-1">Data Storage</h5>
+                    <p className="text-sm mb-2">
+                      All your financial data is stored in encrypted format. We employ industry-standard security measures
+                      to protect against unauthorized access, alteration, disclosure, or destruction of your personal information.
+                    </p>
+                    
+                    <h5 className="font-medium text-sm mb-1">Data Processing</h5>
+                    <p className="text-sm mb-2">
+                      We use AI technologies to analyze your financial data solely for the purpose of providing 
+                      insights, recommendations, and reports to you. This processing is performed securely
+                      and in compliance with applicable regulations.
+                    </p>
+                    
+                    <h5 className="font-medium text-sm mb-1">Third-Party Services</h5>
+                    <p className="text-sm mb-2">
+                      We use certain third-party services like Groq AI for data processing and SendGrid for email
+                      communication. These providers have strict data protection policies and do not store your financial data.
+                    </p>
+                    
+                    <h5 className="font-medium text-sm mb-1">Regulatory Compliance</h5>
+                    <p className="text-sm mb-2">
+                      Our financial data handling practices comply with relevant financial regulations and data protection laws.
+                      We are committed to maintaining the highest standards of security and privacy.
+                    </p>
+                    
+                    <h5 className="font-medium text-sm mb-1">Your Rights</h5>
+                    <p className="text-sm">
+                      You have the right to access, modify, and delete your personal data at any time using the tools provided
+                      in this settings panel. If you have questions or concerns about our data practices, please contact our support team.
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
