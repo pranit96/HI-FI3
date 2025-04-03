@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 
 // Environment variable for encryption key or generate a fallback
 // In production, always use an environment variable
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'finvue-secure-encryption-key-12345';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
 /**
  * Service to handle encryption and decryption of sensitive data
