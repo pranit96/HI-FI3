@@ -23,13 +23,18 @@ registerRoutes(app).then(() => {
 });
 
 // Serve static frontend assets
-app.use(express.static(path.join(process.cwd(), 'dist')));
+app.use(express.static(path.join(process.cwd(), 'dist/public')));
 
 // Frontend route handling should come last
 app.get('*', (req, res) => {
   // Only serve index.html for non-API routes
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(process.cwd(), 'dist/index.html'));
+    const indexPath = path.join(process.cwd(), 'dist/public/index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send('Frontend not built. Please run npm run build first.');
+    }
   }
 });
 
