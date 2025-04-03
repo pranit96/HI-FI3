@@ -75,11 +75,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Middleware to check if user is authenticated
-  const isAuthenticated = (req: Request, res: Response, next: Function) => {
-    if (req.session?.userId) {
+  const isAuthenticated = async (req: Request, res: Response, next: Function) => {
+    try {
+      const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+
+      if (!token) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
+      const user = await storage.getUser(decoded.id);
+
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      req.session = req.session || {};
+      req.session.userId = decoded.id;
       next();
-    } else {
-      res.status(401).json({ message: "Not authenticated" });
+    } catch (error) {
+      console.error("Auth middleware error:", error);
+      res.status(401).json({ message: "Invalid or expired token" });
     }
   };
 
