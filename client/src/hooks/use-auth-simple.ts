@@ -81,11 +81,14 @@ export function useAuth() {
         throw new Error(errorData.message || 'Login failed');
       }
 
-      const { token, user } = await response.json();
-      localStorage.setItem('auth-token', token);
+      const data = await response.json();
 
-      // Update query cache
-      queryClient.setQueryData(['currentUser'], user);
+      if (!data.token || !data.user) {
+        throw new Error('Invalid response from server');
+      }
+
+      localStorage.setItem('auth-token', data.token);
+      queryClient.setQueryData(['currentUser'], data.user);
 
       toast({
         title: "Login successful",
@@ -94,7 +97,7 @@ export function useAuth() {
       });
 
       navigate('/dashboard');
-      return user;
+      return data.user;
     } catch (error: any) {
       toast({
         title: "Login failed",
@@ -124,9 +127,14 @@ export function useAuth() {
         throw new Error(errorData.message || 'Registration failed');
       }
 
-      const { token, user } = await response.json();
-      localStorage.setItem('auth-token', token);
-      queryClient.setQueryData(['currentUser'], user);
+      const data = await response.json();
+
+      if (!data.token || !data.user) {
+        throw new Error('Invalid response from server');
+      }
+
+      localStorage.setItem('auth-token', data.token);
+      queryClient.setQueryData(['currentUser'], data.user);
 
       toast({
         title: "Registration successful",
@@ -135,7 +143,7 @@ export function useAuth() {
       });
 
       navigate('/dashboard');
-      return user;
+      return data.user;
     } catch (error: any) {
       toast({
         title: "Registration failed",
