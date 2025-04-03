@@ -10,15 +10,16 @@ interface EmailTemplate {
 // Get email configuration from environment variables
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
-const EMAIL_HOST = 'smtp.gmail.com';
-const EMAIL_PORT = 587;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'notifications@finsavvy.com';
+const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
+const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '465');
+const EMAIL_SECURE = process.env.EMAIL_SECURE === 'true';
+const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || 'notifications@finsavvy.com';
 
 // Create Gmail transporter
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
-  secure: false, // true for 465, false for other ports
+  secure: EMAIL_SECURE, // true for 465, false for other ports
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
