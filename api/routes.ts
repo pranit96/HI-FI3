@@ -66,24 +66,11 @@ declare module 'express-session' {
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; //Added JWT Secret
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup session store
-  const MemorySessionStore = MemoryStore(session);
-  app.use(
-    session({
-      cookie: { 
-        maxAge: 86400000, // 24 hours
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production'
-      },
-      store: new MemorySessionStore({
-        checkPeriod: 86400000 // Prune expired entries every 24h
-      }),
-      resave: false,
-      saveUninitialized: false,
-      secret: process.env.SESSION_SECRET || "FinSavvy-secret-key"
-    })
-  );
+  // CORS configuration for credentials
+  app.use(cors({
+    origin: process.env.NODE_ENV === 'production' ? 'https://your-domain.com' : 'http://localhost:5000',
+    credentials: true
+  }));
 
   // Middleware to check if user is authenticated
   const isAuthenticated = (req: Request, res: Response, next: Function) => {

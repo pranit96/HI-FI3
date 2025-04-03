@@ -53,16 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       console.log("Attempting login with:", credentials.email);
-      
+
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
         credentials: "include"
       });
-      
+
       console.log("Login response status:", response.status);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
@@ -71,17 +71,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Get user data from response
       const userData = await response.json();
       console.log("Login successful, user data received:", userData);
-      
+
       // Update query cache
       await queryClient.setQueryData(['/api/auth/me'], userData);
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      
+
       toast({
         title: "Login successful",
         description: "Welcome back to FinSavvy!",
         variant: "success",
       });
-      
+
       return userData;
     } catch (error: any) {
       console.error("Login error:", error);
@@ -101,16 +101,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       console.log("Attempting registration with:", credentials.email);
-      
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
         credentials: "include"
       });
-      
+
       console.log("Registration response status:", response.status);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
@@ -119,17 +119,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Get user data from response
       const userData = await response.json();
       console.log("Registration successful, user data received:", userData);
-      
+
       // Update query cache
       await queryClient.setQueryData(['/api/auth/me'], userData);
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      
+
       toast({
         title: "Registration successful",
         description: "Welcome to FinSavvy!",
         variant: "success",
       });
-      
+
       return userData;
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -148,27 +148,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       setIsLoading(true);
-      
+
       const response = await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include"
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
       }
-      
+
       // Reset query cache
       queryClient.setQueryData(['/api/auth/me'], null);
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      
+
       toast({
         title: "Logged out",
         description: "You have been successfully logged out",
         variant: "success",
       });
-      
+
       // Navigate to login
       navigate("/login");
     } catch (error: any) {
@@ -193,7 +193,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout
   };
 
-  return { ...value };
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

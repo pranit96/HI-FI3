@@ -1,4 +1,3 @@
-
 import { NextApiRequest, NextApiResponse } from 'next';
 import { User } from '@shared/schema';
 import jwt from 'jsonwebtoken';
@@ -16,11 +15,7 @@ export interface AuthenticatedRequest extends NextApiRequest {
 export const withAuth = (handler: (req: AuthenticatedRequest, res: NextApiResponse) => Promise<any>) => {
   return async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
-      const authHeader = req.headers.authorization;
-      const cookieToken = req.cookies?.token;
-      const token = authHeader?.startsWith('Bearer ') 
-        ? authHeader.split(' ')[1]
-        : cookieToken;
+      const token = req.cookies?.token;
 
       if (!token) {
         return res.status(401).json({ error: 'Authentication required' });

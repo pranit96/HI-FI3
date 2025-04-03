@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { registerRoutes } from '../api/routes';
 import path from 'path';
