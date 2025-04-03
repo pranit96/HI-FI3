@@ -1,4 +1,4 @@
-import * as CryptoJS from 'crypto-js';
+import CryptoJS from 'crypto-js';
 import * as crypto from 'crypto';
 
 // Environment variable for encryption key or generate a fallback

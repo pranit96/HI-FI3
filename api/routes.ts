@@ -642,12 +642,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
-      const goalData = insertGoalSchema.parse({
-        ...req.body,
-        userId
-      });
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
 
-      const goal = await storage.createGoal(goalData);
+      // Validate numeric fields
+      const { targetAmount, currentAmount = 0 } = req.body;
+      if (!targetAmount || isNaN(parseFloat(targetAmount))) {
+        return res.status(400).json({ message: "Invalid target amount" });
+      }
+
+      const goal = await storage.createGoal({ 
+        ...req.body,
+        userId,
+        targetAmount: parseFloat(targetAmount),
+        currentAmount: parseFloat(currentAmount) || 0
+      });
       res.status(201).json(goal);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -820,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const expenses = await storage.getMonthlyExpensesByCategory(userId, year, month);
-      
+
       // Return empty array if no data instead of error
       res.status(200).json(expenses || []);
     } catch (error) {
