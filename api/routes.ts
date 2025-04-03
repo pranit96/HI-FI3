@@ -18,7 +18,6 @@ import { promises as fs } from "fs";
 import { parseBankStatement } from "./utils/pdfParser";
 import { categorizeTransactions, generateSpendingInsights, suggestFinancialGoals, analyzeWithGroq } from "./utils/groqAI";
 import { emailService } from "./utils/emailService";
-import { sendgridService } from "./utils/sendgridService";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MemoryStore from "memorystore";
@@ -992,40 +991,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Test email with SendGrid if API key is available
-      let sendgridResult = false;
-      if (process.env.SENDGRID_API_KEY) {
-        try {
-          await sendgridService.sendTestEmail(user.email);
-          sendgridResult = true;
-        } catch (error) {
-          console.error("SendGrid test email error:", error);
-          sendgridResult = false;
-        }
-      }
-      
-      // Test email with nodemailer as fallback
-      let nodemailerResult = false;
+      // Test email with Gmail SMTP
+      let emailResult = false;
       try {
         await emailService.sendTestEmail(user.email);
-        nodemailerResult = true;
+        emailResult = true;
       } catch (error) {
-        console.error("Nodemailer test email error:", error);
-        nodemailerResult = false;
+        console.error("Gmail SMTP email error:", error);
+        emailResult = false;
       }
       
-      if (!sendgridResult && !nodemailerResult) {
+      if (!emailResult) {
         return res.status(500).json({ 
-          message: "Email test failed with both SendGrid and nodemailer",
-          sendgrid: { success: sendgridResult },
-          nodemailer: { success: nodemailerResult }
+          message: "Email test failed with Gmail SMTP",
+          success: emailResult
         });
       }
       
       res.status(200).json({ 
         message: "Email test completed", 
-        sendgrid: { success: sendgridResult, configured: !!process.env.SENDGRID_API_KEY },
-        nodemailer: { success: nodemailerResult }
+        success: emailResult,
+        configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS)
       });
     } catch (error) {
       console.error("Test email error:", error);

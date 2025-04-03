@@ -154,7 +154,7 @@ export async function generateSpendingInsights(
       I need to generate actionable financial insights for a user based on their transaction data.
       
       User Information:
-      - Name: ${user.fullName}
+      - Name: ${user.name}
       - Monthly Salary: ${user.monthlySalary ? `$${user.monthlySalary}` : 'Unknown'}
       
       Transaction Summary by Category:
@@ -267,7 +267,7 @@ export async function suggestFinancialGoals(
       I need to suggest personalized financial goals for a user based on their transaction data.
       
       User Information:
-      - Name: ${user.fullName}
+      - Name: ${user.name}
       - Monthly Salary: ${user.monthlySalary ? `$${user.monthlySalary}` : 'Unknown'}
       - Total Income (from transactions): $${income.toFixed(2)}
       - Total Expenses (from transactions): $${expenses.toFixed(2)}

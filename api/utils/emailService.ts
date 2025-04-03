@@ -10,33 +10,36 @@ interface EmailTemplate {
 // Get email configuration from environment variables
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
-const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
-const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '587');
-const EMAIL_FROM = process.env.EMAIL_FROM || 'notifications@financehub.com';
+const EMAIL_HOST = 'smtp.gmail.com';
+const EMAIL_PORT = 587;
+const EMAIL_FROM = process.env.EMAIL_FROM || 'notifications@finsavvy.com';
 
-// Create transporter
+// Create Gmail transporter
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
-  secure: EMAIL_PORT === 465,
+  secure: false, // true for 465, false for other ports
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
   },
+  tls: {
+    rejectUnauthorized: false
+  }
 });
 
 // Email templates
 export const emailTemplates = {
   welcome: (user: User) => ({
     subject: 'Welcome to Finance Hub!',
-    text: `Hello ${user.fullName},\n\nWelcome to Finance Hub! We're excited to help you manage your finances and achieve your financial goals.\n\nTo get started, you can:\n1. Add your bank accounts\n2. Upload your bank statements\n3. Set your financial goals\n\nIf you have any questions, please don't hesitate to contact our support team.\n\nBest,\nThe Finance Hub Team`,
+    text: `Hello ${user.name},\n\nWelcome to Finance Hub! We're excited to help you manage your finances and achieve your financial goals.\n\nTo get started, you can:\n1. Add your bank accounts\n2. Upload your bank statements\n3. Set your financial goals\n\nIf you have any questions, please don't hesitate to contact our support team.\n\nBest,\nThe Finance Hub Team`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #007bff; color: white; padding: 20px; text-align: center;">
           <h1>Welcome to Finance Hub!</h1>
         </div>
         <div style="padding: 20px;">
-          <p>Hello ${user.fullName},</p>
+          <p>Hello ${user.name},</p>
           <p>Welcome to Finance Hub! We're excited to help you manage your finances and achieve your financial goals.</p>
           <p>To get started, you can:</p>
           <ol>
@@ -56,14 +59,14 @@ export const emailTemplates = {
   
   weeklyReport: (user: User, insights: Insight[], stats: { income: number; expenses: number; savings: number }) => ({
     subject: 'Your Weekly Financial Report',
-    text: `Hello ${user.fullName},\n\nHere's your weekly financial report:\n\nIncome: $${stats.income.toFixed(2)}\nExpenses: $${stats.expenses.toFixed(2)}\nSavings: $${stats.savings.toFixed(2)}\n\nInsights:\n${insights.map(i => `- ${i.title}: ${i.description}`).join('\n')}\n\nCheck your dashboard for more details.\n\nBest,\nThe Finance Hub Team`,
+    text: `Hello ${user.name},\n\nHere's your weekly financial report:\n\nIncome: $${stats.income.toFixed(2)}\nExpenses: $${stats.expenses.toFixed(2)}\nSavings: $${stats.savings.toFixed(2)}\n\nInsights:\n${insights.map(i => `- ${i.title}: ${i.description}`).join('\n')}\n\nCheck your dashboard for more details.\n\nBest,\nThe Finance Hub Team`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #007bff; color: white; padding: 20px; text-align: center;">
           <h1>Your Weekly Financial Report</h1>
         </div>
         <div style="padding: 20px;">
-          <p>Hello ${user.fullName},</p>
+          <p>Hello ${user.name},</p>
           <p>Here's your weekly financial report:</p>
           <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <p style="margin: 5px 0;"><strong>Income:</strong> $${stats.income.toFixed(2)}</p>
@@ -86,14 +89,14 @@ export const emailTemplates = {
   
   uploadReminder: (user: User) => ({
     subject: 'Reminder: Upload Your Bank Statement',
-    text: `Hello ${user.fullName},\n\nThis is a friendly reminder to upload your latest bank statement to Finance Hub. Regular uploads help us provide you with accurate insights and recommendations.\n\nLog in to your account to upload your statement.\n\nBest,\nThe Finance Hub Team`,
+    text: `Hello ${user.name},\n\nThis is a friendly reminder to upload your latest bank statement to Finance Hub. Regular uploads help us provide you with accurate insights and recommendations.\n\nLog in to your account to upload your statement.\n\nBest,\nThe Finance Hub Team`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #ff9800; color: white; padding: 20px; text-align: center;">
           <h1>Upload Reminder</h1>
         </div>
         <div style="padding: 20px;">
-          <p>Hello ${user.fullName},</p>
+          <p>Hello ${user.name},</p>
           <p>This is a friendly reminder to upload your latest bank statement to Finance Hub. Regular uploads help us provide you with accurate insights and recommendations.</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="#" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Upload Statement</a>
@@ -109,14 +112,14 @@ export const emailTemplates = {
   
   analysisComplete: (user: User, bankStatement: BankStatement, insights: Insight[]) => ({
     subject: 'Bank Statement Analysis Complete',
-    text: `Hello ${user.fullName},\n\nWe've analyzed your recently uploaded bank statement and generated ${insights.length} insights.\n\nHere are some highlights:\n${insights.slice(0, 3).map(i => `- ${i.title}: ${i.description}`).join('\n')}\n\nLog in to your account to view all insights and recommendations.\n\nBest,\nThe Finance Hub Team`,
+    text: `Hello ${user.name},\n\nWe've analyzed your recently uploaded bank statement and generated ${insights.length} insights.\n\nHere are some highlights:\n${insights.slice(0, 3).map(i => `- ${i.title}: ${i.description}`).join('\n')}\n\nLog in to your account to view all insights and recommendations.\n\nBest,\nThe Finance Hub Team`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #4caf50; color: white; padding: 20px; text-align: center;">
           <h1>Analysis Complete</h1>
         </div>
         <div style="padding: 20px;">
-          <p>Hello ${user.fullName},</p>
+          <p>Hello ${user.name},</p>
           <p>We've analyzed your recently uploaded bank statement and generated ${insights.length} insights.</p>
           <h2>Highlights</h2>
           <ul>
@@ -141,14 +144,14 @@ export const emailTemplates = {
     
     return {
       subject: `Goal Progress Update: ${goal.name}`,
-      text: `Hello ${user.fullName},\n\nHere's an update on your financial goal "${goal.name}":\n\nProgress: ${progressText}\nCurrent Amount: $${goal.currentAmount.toFixed(2)}\nTarget Amount: $${goal.targetAmount.toFixed(2)}\nRemaining: $${remainingAmount.toFixed(2)}\n\nKeep up the good work!\n\nBest,\nThe Finance Hub Team`,
+      text: `Hello ${user.name},\n\nHere's an update on your financial goal "${goal.name}":\n\nProgress: ${progressText}\nCurrent Amount: $${goal.currentAmount.toFixed(2)}\nTarget Amount: $${goal.targetAmount.toFixed(2)}\nRemaining: $${remainingAmount.toFixed(2)}\n\nKeep up the good work!\n\nBest,\nThe Finance Hub Team`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #673ab7; color: white; padding: 20px; text-align: center;">
             <h1>Goal Progress Update</h1>
           </div>
           <div style="padding: 20px;">
-            <p>Hello ${user.fullName},</p>
+            <p>Hello ${user.name},</p>
             <p>Here's an update on your financial goal "${goal.name}":</p>
             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <p style="margin: 5px 0;"><strong>Progress:</strong> ${progressText}</p>
