@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import cors from 'cors';
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -68,8 +69,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; //Added JWT Secr
 export async function registerRoutes(app: Express): Promise<Server> {
   // CORS configuration for credentials
   app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? process.env.REPL_SLUG + '.id.repl.co' : 'http://localhost:5000',
-    credentials: true
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
   }));
 
   // Middleware to check if user is authenticated
