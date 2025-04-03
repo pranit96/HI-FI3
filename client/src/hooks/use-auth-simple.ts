@@ -90,6 +90,12 @@ export function useAuth() {
       localStorage.setItem('auth-token', data.token);
       queryClient.setQueryData(['currentUser'], data.user);
 
+      // Verify token was stored
+      const storedToken = localStorage.getItem('auth-token');
+      if (!storedToken) {
+        throw new Error('Failed to store authentication token');
+      }
+
       toast({
         title: "Login successful",
         description: "Welcome back!",
@@ -135,6 +141,12 @@ export function useAuth() {
 
       localStorage.setItem('auth-token', data.token);
       queryClient.setQueryData(['currentUser'], data.user);
+
+      // Verify token was stored
+      const storedToken = localStorage.getItem('auth-token');
+      if (!storedToken) {
+        throw new Error('Failed to store authentication token');
+      }
 
       toast({
         title: "Registration successful",
