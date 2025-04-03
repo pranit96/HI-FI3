@@ -65,6 +65,14 @@ export function useAuth() {
       const data = await response.json();
       localStorage.setItem('auth-token', data.token);
 
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Login failed');
+      }
+
+      const data = await response.json();
+      localStorage.setItem('auth-token', data.token);
+
       await queryClient.setQueryData(['currentUser'], data.user);
       await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
 

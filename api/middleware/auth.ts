@@ -14,9 +14,10 @@ export const withAuth = (handler: (req: AuthenticatedRequest, res: NextApiRespon
     try {
       // Get token from Authorization header or cookie
       const authHeader = req.headers.authorization;
+      const cookieToken = req.cookies?.token;
       const token = authHeader?.startsWith('Bearer ') 
         ? authHeader.split(' ')[1]
-        : req.cookies?.token;
+        : cookieToken;
 
       if (!token) {
         return res.status(401).json({ error: 'No authentication token provided' });
