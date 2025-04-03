@@ -289,6 +289,82 @@ const DatabaseTest = () => {
 };
 
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [password, setPassword] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { toast } = useToast();
+
+  const handleLogin = () => {
+    setIsLoading(true);
+    // Using a simple hardcoded password for demo purposes
+    // In a real app, this would be validated against a secure backend
+    const adminPassword = "finvue-admin-2025";
+    
+    setTimeout(() => {
+      if (password === adminPassword) {
+        setIsAuthenticated(true);
+        toast({
+          title: "Admin Access Granted",
+          description: "Welcome to the admin dashboard",
+        });
+      } else {
+        toast({
+          title: "Access Denied",
+          description: "Incorrect password",
+          variant: "destructive",
+        });
+      }
+      setIsLoading(false);
+    }, 1000);
+  };
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="container py-10 max-w-md mx-auto">
+        <Card>
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl">Admin Access</CardTitle>
+            <CardDescription>
+              Enter your admin password to access this page
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium" htmlFor="password">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLogin();
+                  }
+                }}
+              />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                'Authenticate'
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show admin dashboard if authenticated
   return (
     <div className="container py-10">
       <div className="mb-10 space-y-2">

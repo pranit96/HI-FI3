@@ -80,9 +80,10 @@ function App() {
         <ProtectedRoute path="/settings">
           <Settings />
         </ProtectedRoute>
-        <ProtectedRoute path="/admin">
+        {/* Admin route is accessible only directly via URL */}
+        <Route path="/admin">
           <Admin />
-        </ProtectedRoute>
+        </Route>
         
         {/* 404 route */}
         <Route component={NotFound} />

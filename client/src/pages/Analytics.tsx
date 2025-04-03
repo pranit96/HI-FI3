@@ -91,9 +91,8 @@ export default function Analytics() {
         name: month.toLocaleString('default', { month: 'short' }),
         year: month.getFullYear(),
         month: month.getMonth() + 1,
-        // Generate mock data for trend visualization
-        income: Math.round(5000 + Math.random() * 5000),
-        expenses: Math.round(3000 + Math.random() * 3000),
+        income: 0,
+        expenses: 0
       });
     }
     

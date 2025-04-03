@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Header from "@/components/dashboard/Header";
-import Sidebar from "@/components/dashboard/Sidebar";
-import Footer from "@/components/dashboard/Footer";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Redirect } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -151,20 +149,12 @@ export default function Transactions() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen flex flex-col">
-      <Header />
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-grow">
-        <div className="lg:col-span-3 xl:col-span-2">
-          <Sidebar />
-        </div>
-
-        <div className="lg:col-span-9 xl:col-span-10 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Transactions</CardTitle>
-              <CardDescription>View and manage all your financial transactions</CardDescription>
-            </CardHeader>
+    <DashboardLayout>
+      <Card>
+        <CardHeader>
+          <CardTitle>Transactions</CardTitle>
+          <CardDescription>View and manage all your financial transactions</CardDescription>
+        </CardHeader>
             <CardContent>
               {/* Filters */}
               <div className="flex flex-col lg:flex-row gap-4 mb-6">
@@ -321,10 +311,6 @@ export default function Transactions() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
-
-      <Footer />
-    </div>
+    </DashboardLayout>
   );
 }
