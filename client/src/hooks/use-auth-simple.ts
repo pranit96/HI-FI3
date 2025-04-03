@@ -94,10 +94,29 @@ export function useAuth() {
       console.log("Login successful, response received:", responseData);
       
       // Store token
-      localStorage.setItem('auth-token', responseData.token);
+      const token = responseData.token;
+      localStorage.setItem('auth-token', token);
       
       // Update query cache with user data
       await queryClient.setQueryData(['/api/auth/me'], responseData.user);
+      
+      // Update default headers for future requests
+      queryClient.setDefaultOptions({
+        queries: {
+          queryFn: async ({ queryKey }) => {
+            const response = await fetch(queryKey[0] as string, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'auth-token': token
+              },
+              credentials: 'include'
+            });
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+          }
+        }
+      });
+      
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       
       toast({
