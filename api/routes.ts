@@ -229,7 +229,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  app.post(["/api/auth/login", "/login"], handleLogin);
+  // Handle both GET and POST for login
+  app.route(["/api/auth/login", "/login"])
+    .get((req: Request, res: Response) => {
+      res.status(405).json({ message: "Please use POST method for login" });
+    })
+    .post(handleLogin);
 
   // Logout
   app.post("/api/auth/logout", (req: Request, res: Response) => {
