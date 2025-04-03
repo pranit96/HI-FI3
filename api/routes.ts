@@ -197,47 +197,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Login
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  // Login - support both /api/auth/login and /login paths
+  const handleLogin = async (req: Request, res: Response) => {
     try {
       const { email, password } = z.object({
         email: z.string().email(),
         password: z.string().min(6)
       }).parse(req.body);
 
-      // Find user by email
       const user = await storage.getUserByEmail(email);
       if (!user) {
-        return res.status(401).json({ message: "Invalid email or password" });
+        return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      // Compare passwords
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
-        return res.status(401).json({ message: "Invalid email or password" });
+        return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      // Generate JWT token
       const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-
-      // Set session
-      req.session.userId = user.id;
-
-      // Return user without password and token
       const { password: _, ...userWithoutPassword } = user;
-      res.status(200).json({
+
+      res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
+      return res.status(200).json({
         user: userWithoutPassword,
         token
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        const validationError = new ValidationError(error);
-        return res.status(400).json({ message: validationError.message });
-      }
       console.error("Login error:", error);
-      res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ message: "Login failed" });
     }
-  });
+  };
+
+  app.post(["/api/auth/login", "/login"], handleLogin);
 
   // Logout
   app.post("/api/auth/logout", (req: Request, res: Response) => {
