@@ -95,19 +95,29 @@ export function useAuth() {
       
       // Store token
       const token = responseData.token;
-      localStorage.setItem('auth-token', token);
+      if (token) {
+        localStorage.setItem('auth-token', token);
+        
+        // Set default headers for future requests
+        queryClient.setDefaultOptions({
+          queries: {
+            queryFn: async ({ queryKey }) => {
+              const response = await fetch(queryKey[0] as string, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'auth-token': token
+                },
+                credentials: 'include'
+              });
+              if (!response.ok) throw new Error('Network response was not ok');
+              return response.json();
+            }
+          }
+        });
+      }
       
       // Update query cache with user data
       await queryClient.setQueryData(['/api/auth/me'], responseData.user);
-
-      // Configure global fetch defaults
-      const defaultInit: RequestInit = {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'auth-token': token
-        }
-      };
 
       // Set new defaults for all queries
       queryClient.setDefaultOptions({
