@@ -17,7 +17,11 @@ type BankAccount = {
   color: string;
 };
 
-export default function Sidebar() {
+type SidebarProps = {
+  collapsed?: boolean;
+};
+
+export default function Sidebar({ collapsed = false }: SidebarProps) {
   const [location] = useLocation();
 
   const { data: bankAccounts = [] } = useQuery<BankAccount[]>({
@@ -27,33 +31,58 @@ export default function Sidebar() {
   const navItems = [
     {
       label: "Dashboard",
-      icon: <Home className="mr-3 h-6 w-6" />,
+      icon: <Home className={cn("h-6 w-6", collapsed ? "" : "mr-3")} />,
       href: "/dashboard",
     },
     {
       label: "Transactions",
-      icon: <List className="mr-3 h-6 w-6" />,
+      icon: <List className={cn("h-6 w-6", collapsed ? "" : "mr-3")} />,
       href: "/transactions",
     },
     {
       label: "Analytics",
-      icon: <BarChart3 className="mr-3 h-6 w-6" />,
+      icon: <BarChart3 className={cn("h-6 w-6", collapsed ? "" : "mr-3")} />,
       href: "/analytics",
     },
     {
       label: "Goals",
-      icon: <Clock className="mr-3 h-6 w-6" />,
+      icon: <Clock className={cn("h-6 w-6", collapsed ? "" : "mr-3")} />,
       href: "/goals",
     },
     {
       label: "Settings",
-      icon: <Settings className="mr-3 h-6 w-6" />,
+      icon: <Settings className={cn("h-6 w-6", collapsed ? "" : "mr-3")} />,
       href: "/settings",
     },
+    // Admin page intentionally removed from sidebar navigation
   ];
 
+  if (collapsed) {
+    return (
+      <div className="bg-card dark:bg-card rounded-xl py-4 shadow-sm h-full">
+        <nav className="flex flex-col items-center space-y-4">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center justify-center p-2 rounded-lg transition-colors w-10 h-10",
+                location === item.href
+                  ? "bg-primary-50 text-primary dark:bg-primary/10 dark:text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              title={item.label}
+            >
+              {item.icon}
+            </Link>
+          ))}
+        </nav>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-card dark:bg-card rounded-xl p-4 shadow-sm">
+    <div className="bg-card dark:bg-card rounded-xl p-4 shadow-sm h-full w-64">
       <nav className="space-y-1">
         {navItems.map((item) => (
           <Link

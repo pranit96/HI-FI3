@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { useState, useRef, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Redirect } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 import {
   Table,
@@ -19,6 +20,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   Select,
@@ -33,7 +35,40 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Filter, Search } from "lucide-react";
+import { 
+  Calendar as CalendarIcon, 
+  Filter, 
+  Search, 
+  Upload, 
+  FileText, 
+  Loader2,
+  PlusCircle,
+  Save,
+  TrendingUp,
+  Coins
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/hooks/use-auth-simple";
 
 type Transaction = {
   id: number;
@@ -51,6 +86,488 @@ type BankAccount = {
   shortCode: string;
   color: string;
 };
+
+// Monthly Salary Input Component
+function MonthlySalaryInput() {
+  const { toast } = useToast();
+  const { data: user } = useQuery({ queryKey: ['/api/auth/me'] });
+  const [salary, setSalary] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Set initial salary value when user data is loaded
+  useEffect(() => {
+    if (user?.monthlySalary) {
+      setSalary(user.monthlySalary.toString());
+    }
+  }, [user?.monthlySalary]);
+  
+  const updateMutation = useMutation({
+    mutationFn: async (data: { monthlySalary: number }) => {
+      const response = await apiRequest('PATCH', '/api/users/me', data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics/income-vs-expenses'] });
+      toast({
+        title: "Salary updated",
+        description: "Your monthly salary has been updated successfully",
+      });
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update salary: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const handleSave = () => {
+    const salaryValue = parseFloat(salary);
+    if (isNaN(salaryValue) || salaryValue < 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid salary amount",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    updateMutation.mutate({ monthlySalary: salaryValue });
+  };
+  
+  return (
+    <div className="p-4 rounded-lg border">
+      <h3 className="text-sm font-semibold mb-2">Monthly Income</h3>
+      {isEditing ? (
+        <div className="space-y-2">
+          <div className="flex">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-2.5 text-muted-foreground">
+                {user?.currency || '₹'}
+              </span>
+              <Input
+                type="number"
+                className="pl-8"
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <Button
+              className="ml-2"
+              size="sm"
+              onClick={handleSave}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              setSalary(user?.monthlySalary?.toString() || '');
+              setIsEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-baseline justify-between">
+            <p className="text-2xl font-bold">
+              {formatCurrency(user?.monthlySalary || 0, user?.currency)}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Your monthly salary is used to calculate savings rate
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Savings Goal Input Component
+function SavingsGoalInput() {
+  const { toast } = useToast();
+  const [savingsGoal, setSavingsGoal] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Get current user and settings
+  const { data: user } = useQuery({ queryKey: ['/api/auth/me'] });
+  const { data: settings } = useQuery({
+    queryKey: ['/api/settings/savings-goal'],
+    onSuccess: (data) => {
+      if (data?.savingsGoal) {
+        setSavingsGoal(data.savingsGoal.toString());
+      }
+    }
+  });
+  
+  const updateMutation = useMutation({
+    mutationFn: async (data: { savingsGoal: number }) => {
+      const response = await apiRequest('PATCH', '/api/settings/savings-goal', data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/savings-goal'] });
+      toast({
+        title: "Savings goal updated",
+        description: "Your monthly savings goal has been updated",
+      });
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update savings goal: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const handleSave = () => {
+    const goalValue = parseFloat(savingsGoal);
+    if (isNaN(goalValue) || goalValue < 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid savings goal amount",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    updateMutation.mutate({ savingsGoal: goalValue });
+  };
+  
+  return (
+    <div className="p-4 rounded-lg border">
+      <h3 className="text-sm font-semibold mb-2">Monthly Savings Goal</h3>
+      {isEditing ? (
+        <div className="space-y-2">
+          <div className="flex">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-2.5 text-muted-foreground">
+                {user?.currency || '₹'}
+              </span>
+              <Input
+                type="number"
+                className="pl-8"
+                value={savingsGoal}
+                onChange={(e) => setSavingsGoal(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <Button
+              className="ml-2"
+              size="sm"
+              onClick={handleSave}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              setSavingsGoal(settings?.savingsGoal?.toString() || '');
+              setIsEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-baseline justify-between">
+            <p className="text-2xl font-bold">
+              {formatCurrency(settings?.savingsGoal || 0, user?.currency)}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Set a target for your monthly savings
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Savings Tracker Component
+function SavingsTracker() {
+  const { data: user } = useQuery({ queryKey: ['/api/auth/me'] });
+  const { data: settings } = useQuery({ queryKey: ['/api/settings/savings-goal'] });
+  const { data: transactions = [] } = useQuery({ queryKey: ['/api/transactions'] });
+  const { data: monthlyData } = useQuery({ queryKey: ['/api/analytics/income-vs-expenses'] });
+  
+  // Calculate actual savings
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  const actualSavings = (monthlyData?.income || 0) - (monthlyData?.expenses || 0);
+  const savingsGoal = settings?.savingsGoal || 0;
+  
+  // Calculate progress percentage
+  let progressPercentage = 0;
+  if (savingsGoal > 0 && actualSavings > 0) {
+    progressPercentage = Math.min(Math.round((actualSavings / savingsGoal) * 100), 100);
+  }
+  
+  return (
+    <div className="p-4 rounded-lg border">
+      <h3 className="text-sm font-semibold mb-2">Current Savings Progress</h3>
+      <div className="mb-4">
+        <div className="flex justify-between text-sm mb-1">
+          <span>
+            {formatCurrency(actualSavings, user?.currency)}
+          </span>
+          <span>
+            {formatCurrency(savingsGoal, user?.currency)}
+          </span>
+        </div>
+        <Progress value={progressPercentage} className="h-2" />
+      </div>
+      <div className="flex justify-between items-baseline">
+        <p className="text-xl font-semibold">
+          {progressPercentage}%
+        </p>
+        <p className="text-xs text-muted-foreground">
+          of monthly goal
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Upload Bank Statement Form Component
+function UploadBankStatementForm() {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  
+  // Upload mutation
+  const uploadMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch('/api/bank-statements/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to upload statement');
+      }
+      
+      return await response.json();
+    },
+    onMutate: () => {
+      setUploading(true);
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          // Simulate progress up to 90% (actual completion happens on success)
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 5;
+        });
+      }, 300);
+      
+      return () => clearInterval(progressInterval);
+    },
+    onSuccess: () => {
+      setUploadProgress(100);
+      
+      setTimeout(() => {
+        setUploading(false);
+        setUploadProgress(0);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/bank-statements'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/analytics/income-vs-expenses'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/analytics/expenses-by-category'] });
+        
+        toast({
+          title: "Statement processed",
+          description: "Your bank statement has been uploaded and transactions imported.",
+        });
+      }, 1000);
+    },
+    onError: (error) => {
+      setUploading(false);
+      setUploadProgress(0);
+      toast({
+        title: "Upload failed",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select a PDF bank statement to upload",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    
+    // Execute the mutation
+    uploadMutation.mutate(formData);
+  };
+  
+  return (
+    <div className="p-4 rounded-lg border">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">
+            Upload Bank Statement (PDF)
+          </label>
+          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg px-6 py-8 text-center hover:border-primary/50 transition-colors">
+            <div className="flex flex-col items-center space-y-2">
+              <Upload className="h-8 w-8 text-muted-foreground" />
+              <p className="text-sm font-medium">
+                {selectedFile ? selectedFile.name : "Drag & drop your PDF here"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Supported format: PDF
+              </p>
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                accept=".pdf" 
+                onChange={handleFileChange}
+                className="hidden" 
+                id="bank-statement-upload"
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                Choose File
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        {uploading && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs">
+              <span>Uploading and processing...</span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <Progress value={uploadProgress} className="h-1" />
+          </div>
+        )}
+        
+        <div className="flex justify-between">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                disabled={!selectedFile || uploading || uploadMutation.isPending}
+              >
+                Cancel
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Cancel Upload?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to cancel uploading this bank statement?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Continue Upload</AlertDialogCancel>
+                <AlertDialogAction onClick={() => {
+                  setSelectedFile(null);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }}>
+                  Cancel Upload
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          
+          <Button 
+            type="submit" 
+            disabled={!selectedFile || uploading || uploadMutation.isPending}
+          >
+            {uploadMutation.isPending || uploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : "Upload & Process"}
+          </Button>
+        </div>
+        
+        <p className="text-xs text-muted-foreground">
+          Your PDF will be securely processed and then permanently deleted to protect your privacy.
+        </p>
+      </form>
+    </div>
+  );
+}
 
 export default function Transactions() {
   const { toast } = useToast();
@@ -150,12 +667,79 @@ export default function Transactions() {
 
   return (
     <DashboardLayout>
+      {/* Monthly Salary and Savings Input Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Coins className="h-5 w-5 text-primary" />
+            <span>Monthly Income & Savings</span>
+          </CardTitle>
+          <CardDescription>Track your monthly salary and set savings goals</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <MonthlySalaryInput />
+            <SavingsGoalInput />
+            <SavingsTracker />
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* PDF Upload Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <span>Statement Upload</span>
+          </CardTitle>
+          <CardDescription>Upload bank statements to automatically import transactions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <UploadBankStatementForm />
+            <div className="bg-muted/50 p-4 rounded-lg border border-border">
+              <h3 className="text-sm font-medium mb-2">Benefits of Statement Upload</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li className="flex items-center gap-2">
+                  <div className="rounded-full bg-green-500/20 p-1">
+                    <TrendingUp className="h-3 w-3 text-green-500" />
+                  </div>
+                  Automatic transaction categorization
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="rounded-full bg-green-500/20 p-1">
+                    <TrendingUp className="h-3 w-3 text-green-500" />
+                  </div>
+                  Personalized spending insights
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="rounded-full bg-green-500/20 p-1">
+                    <TrendingUp className="h-3 w-3 text-green-500" />
+                  </div>
+                  Accurate financial forecasting
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="rounded-full bg-green-500/20 p-1">
+                    <TrendingUp className="h-3 w-3 text-green-500" />
+                  </div>
+                  Secure, encrypted processing
+                </li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-4">
+                Your data is securely processed and bank statement files are deleted after analysis to protect your privacy.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Transactions List Card */}
       <Card>
         <CardHeader>
           <CardTitle>Transactions</CardTitle>
           <CardDescription>View and manage all your financial transactions</CardDescription>
         </CardHeader>
-            <CardContent>
+        <CardContent>
               {/* Filters */}
               <div className="flex flex-col lg:flex-row gap-4 mb-6">
                 <div className="flex-1 relative">
