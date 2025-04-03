@@ -27,19 +27,26 @@ const TestEmail = () => {
 
     setIsSending(true);
     try {
-      const response = await apiRequest('/api/admin/test-email', {
+      const response = await fetch('/api/admin/test-email', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           email,
           type: emailType,
         }),
       });
-
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
       toast({
         title: 'Email Sent',
         description: `Test email of type "${emailType}" has been sent to ${email}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send test email:', error);
       toast({
         title: 'Failed to send email',
@@ -124,17 +131,26 @@ const TestGroqAPI = () => {
     setIsAnalyzing(true);
     setResponse('');
     try {
-      const result = await apiRequest('/api/admin/test-groq', {
+      const response = await fetch('/api/admin/test-groq', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ text }),
       });
-
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
       setResponse(result.response);
       toast({
         title: 'Analysis Complete',
         description: 'Groq API responded successfully',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to test Groq API:', error);
       toast({
         title: 'API Error',
@@ -202,9 +218,13 @@ const DatabaseTest = () => {
     setIsTesting(true);
     setDbStatus(null);
     try {
-      const result = await apiRequest('/api/admin/test-database', {
-        method: 'GET',
-      });
+      const response = await fetch('/api/admin/test-database');
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
 
       setDbStatus({
         status: result.success ? 'success' : 'error',
@@ -216,7 +236,7 @@ const DatabaseTest = () => {
         description: result.message,
         variant: result.success ? 'default' : 'destructive',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to test database:', error);
       setDbStatus({
         status: 'error',

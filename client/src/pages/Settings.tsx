@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -110,7 +111,7 @@ export default function Settings() {
   });
 
   // Update profile form when user data is loaded
-  React.useEffect(() => {
+  useEffect(() => {
     if (user) {
       profileForm.reset({
         name: user.name,
@@ -143,7 +144,7 @@ export default function Settings() {
   });
 
   // Update notification form when preferences are loaded
-  React.useEffect(() => {
+  useEffect(() => {
     if (notificationPreferences) {
       notificationForm.reset({
         weeklyReport: notificationPreferences.weeklyReport,

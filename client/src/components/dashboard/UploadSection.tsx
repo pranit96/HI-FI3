@@ -41,7 +41,19 @@ export default function UploadSection() {
   // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      return apiRequest("POST", "/api/bank-statements/upload", formData);
+      // Use fetch directly to properly handle FormData with files
+      const response = await fetch("/api/bank-statements/upload", {
+        method: "POST",
+        body: formData,
+        // Don't set Content-Type header - browser will set it with boundary
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Upload failed");
+      }
+      
+      return await response.json();
     },
     onSuccess: () => {
       toast({
