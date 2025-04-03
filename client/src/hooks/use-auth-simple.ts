@@ -100,23 +100,45 @@ export function useAuth() {
       // Update query cache with user data
       await queryClient.setQueryData(['/api/auth/me'], responseData.user);
       
-      // Update default headers for future requests
+      // Set default headers for the queryClient
+      const defaultHeaders = {
+        'Authorization': `Bearer ${token}`,
+        'auth-token': token
+      };
+
       queryClient.setDefaultOptions({
         queries: {
           queryFn: async ({ queryKey }) => {
             const response = await fetch(queryKey[0] as string, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'auth-token': token
-              },
+              headers: defaultHeaders,
               credentials: 'include'
+            });
+            if (response.status === 401) {
+              localStorage.removeItem('auth-token');
+              return null;
+            }
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+          }
+        },
+        mutations: {
+          mutationFn: async ({ endpoint, method = 'POST', data }) => {
+            const response = await fetch(endpoint, {
+              method,
+              headers: {
+                ...defaultHeaders,
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify(data)
             });
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
           }
         }
       });
-      
+
+      // Invalidate and refetch user data
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       
       toast({
