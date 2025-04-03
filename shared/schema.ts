@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecision, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecision, jsonb, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -139,6 +139,43 @@ export const insertNotificationPreferenceSchema = createInsertSchema(notificatio
   id: true,
 });
 
+// Budget models
+export const budgets = pgTable("budgets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  amount: doublePrecision("amount").notNull(),
+  period: text("period").notNull(), // monthly, quarterly, yearly
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  isRecurring: boolean("is_recurring").default(true).notNull(),
+  status: text("status").default("active").notNull(), // active, paused, archived
+  icon: text("icon"),
+  color: text("color"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBudgetSchema = createInsertSchema(budgets).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Budget categories
+export const budgetCategories = pgTable("budget_categories", {
+  id: serial("id").primaryKey(),
+  budgetId: integer("budget_id").notNull().references(() => budgets.id),
+  categoryId: integer("category_id").notNull().references(() => categories.id),
+  maxAmount: doublePrecision("max_amount").notNull(),
+  warningThreshold: doublePrecision("warning_threshold").default(80).notNull(), // percentage of max amount
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBudgetCategorySchema = createInsertSchema(budgetCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -163,3 +200,9 @@ export type InsertInsight = z.infer<typeof insertInsightSchema>;
 
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
+
+export type Budget = typeof budgets.$inferSelect;
+export type InsertBudget = z.infer<typeof insertBudgetSchema>;
+
+export type BudgetCategory = typeof budgetCategories.$inferSelect;
+export type InsertBudgetCategory = z.infer<typeof insertBudgetCategorySchema>;

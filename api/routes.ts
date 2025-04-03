@@ -8,7 +8,9 @@ import {
   insertGoalSchema,
   insertTransactionSchema,
   insertInsightSchema,
-  insertNotificationPreferenceSchema
+  insertNotificationPreferenceSchema,
+  insertBudgetSchema,
+  insertBudgetCategorySchema
 } from "@shared/schema";
 import path from "path";
 import multer from "multer";
@@ -747,6 +749,233 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: validationError.message });
       }
       console.error("Get income/expense analytics error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // BUDGET ROUTES
+  
+  // Get all budgets
+  app.get("/api/budgets", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const budgets = await storage.getBudgets(userId);
+      res.status(200).json(budgets);
+    } catch (error) {
+      console.error("Get budgets error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Get a single budget
+  app.get("/api/budgets/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const budgetId = parseInt(req.params.id);
+      
+      // Verify budget belongs to user
+      const budget = await storage.getBudget(budgetId);
+      if (!budget || budget.userId !== userId) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      res.status(200).json(budget);
+    } catch (error) {
+      console.error("Get budget error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Create a new budget
+  app.post("/api/budgets", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const budgetData = insertBudgetSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      const budget = await storage.createBudget(budgetData);
+      res.status(201).json(budget);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = new ValidationError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Create budget error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Update a budget
+  app.patch("/api/budgets/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const budgetId = parseInt(req.params.id);
+      
+      // Verify budget belongs to user
+      const budget = await storage.getBudget(budgetId);
+      if (!budget || budget.userId !== userId) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      const updateData = insertBudgetSchema.partial().parse(req.body);
+      const updatedBudget = await storage.updateBudget(budgetId, updateData);
+      
+      res.status(200).json(updatedBudget);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = new ValidationError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Update budget error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Delete a budget
+  app.delete("/api/budgets/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const budgetId = parseInt(req.params.id);
+      
+      // Verify budget belongs to user
+      const budget = await storage.getBudget(budgetId);
+      if (!budget || budget.userId !== userId) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      await storage.deleteBudget(budgetId);
+      res.status(200).json({ message: "Budget deleted successfully" });
+    } catch (error) {
+      console.error("Delete budget error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Get budget categories
+  app.get("/api/budgets/:id/categories", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const budgetId = parseInt(req.params.id);
+      
+      // Verify budget belongs to user
+      const budget = await storage.getBudget(budgetId);
+      if (!budget || budget.userId !== userId) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      const budgetCategories = await storage.getBudgetCategories(budgetId);
+      res.status(200).json(budgetCategories);
+    } catch (error) {
+      console.error("Get budget categories error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Add a category to a budget
+  app.post("/api/budgets/:id/categories", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const budgetId = parseInt(req.params.id);
+      
+      // Verify budget belongs to user
+      const budget = await storage.getBudget(budgetId);
+      if (!budget || budget.userId !== userId) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      const categoryData = insertBudgetCategorySchema.parse({
+        ...req.body,
+        budgetId
+      });
+      
+      const budgetCategory = await storage.createBudgetCategory(categoryData);
+      res.status(201).json(budgetCategory);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = new ValidationError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Create budget category error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Update a budget category
+  app.patch("/api/budget-categories/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const categoryId = parseInt(req.params.id);
+      
+      // Get the category
+      const category = await storage.getBudgetCategory(categoryId);
+      if (!category) {
+        return res.status(404).json({ message: "Budget category not found" });
+      }
+      
+      // Verify budget belongs to user
+      const budget = await storage.getBudget(category.budgetId);
+      if (!budget || budget.userId !== userId) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      const updateData = insertBudgetCategorySchema.partial().parse(req.body);
+      const updatedCategory = await storage.updateBudgetCategory(categoryId, updateData);
+      
+      res.status(200).json(updatedCategory);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = new ValidationError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Update budget category error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Delete a budget category
+  app.delete("/api/budget-categories/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const categoryId = parseInt(req.params.id);
+      
+      // Get the category
+      const category = await storage.getBudgetCategory(categoryId);
+      if (!category) {
+        return res.status(404).json({ message: "Budget category not found" });
+      }
+      
+      // Verify budget belongs to user
+      const budget = await storage.getBudget(category.budgetId);
+      if (!budget || budget.userId !== userId) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      await storage.deleteBudgetCategory(categoryId);
+      res.status(200).json({ message: "Budget category deleted successfully" });
+    } catch (error) {
+      console.error("Delete budget category error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Get budget progress
+  app.get("/api/budgets/:id/progress", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const budgetId = parseInt(req.params.id);
+      
+      // Verify budget belongs to user
+      const budget = await storage.getBudget(budgetId);
+      if (!budget || budget.userId !== userId) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      const progress = await storage.getBudgetProgress(budgetId);
+      res.status(200).json(progress);
+    } catch (error) {
+      console.error("Get budget progress error:", error);
       res.status(500).json({ message: "Server error" });
     }
   });

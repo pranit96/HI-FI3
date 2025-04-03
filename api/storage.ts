@@ -7,10 +7,11 @@ import {
   goals, type Goal, type InsertGoal,
   insights, type Insight, type InsertInsight,
   notificationPreferences, type NotificationPreference, type InsertNotificationPreference,
+  budgets, type Budget, type InsertBudget,
+  budgetCategories, type BudgetCategory, type InsertBudgetCategory
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, SQL } from "drizzle-orm";
-import { PostgresDate } from "drizzle-orm/pg-core";
 
 export interface IStorage {
   // User methods
@@ -66,6 +67,21 @@ export interface IStorage {
   getNotificationPreferences(userId: number): Promise<NotificationPreference | undefined>;
   createNotificationPreferences(preferences: InsertNotificationPreference): Promise<NotificationPreference>;
   updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreference>): Promise<NotificationPreference | undefined>;
+  
+  // Budget methods
+  getBudgets(userId: number): Promise<Budget[]>;
+  getBudget(id: number): Promise<Budget | undefined>;
+  createBudget(budget: InsertBudget): Promise<Budget>;
+  updateBudget(id: number, budget: Partial<InsertBudget>): Promise<Budget | undefined>;
+  deleteBudget(id: number): Promise<boolean>;
+  
+  // Budget category methods
+  getBudgetCategories(budgetId: number): Promise<BudgetCategory[]>;
+  getBudgetCategory(id: number): Promise<BudgetCategory | undefined>;
+  createBudgetCategory(budgetCategory: InsertBudgetCategory): Promise<BudgetCategory>;
+  updateBudgetCategory(id: number, budgetCategory: Partial<InsertBudgetCategory>): Promise<BudgetCategory | undefined>;
+  deleteBudgetCategory(id: number): Promise<boolean>;
+  getBudgetProgress(budgetId: number): Promise<{ category: string; budgeted: number; spent: number; remaining: number; progress: number }[]>;
   
   // Analytics methods
   getMonthlyExpensesByCategory(userId: number, year: number, month: number): Promise<{ category: string; total: number }[]>;
@@ -325,6 +341,154 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notificationPreferences.userId, userId))
       .returning();
     return updatedPreferences;
+  }
+
+  /*** Budget methods ***/
+  
+  async getBudgets(userId: number): Promise<Budget[]> {
+    return db
+      .select()
+      .from(budgets)
+      .where(eq(budgets.userId, userId))
+      .orderBy(desc(budgets.createdAt));
+  }
+  
+  async getBudget(id: number): Promise<Budget | undefined> {
+    const [budget] = await db.select().from(budgets).where(eq(budgets.id, id));
+    return budget;
+  }
+  
+  async createBudget(budgetData: InsertBudget): Promise<Budget> {
+    const [budget] = await db.insert(budgets).values(budgetData).returning();
+    return budget;
+  }
+  
+  async updateBudget(id: number, budgetData: Partial<InsertBudget>): Promise<Budget | undefined> {
+    const [updatedBudget] = await db
+      .update(budgets)
+      .set(budgetData)
+      .where(eq(budgets.id, id))
+      .returning();
+    return updatedBudget;
+  }
+  
+  async deleteBudget(id: number): Promise<boolean> {
+    // Delete associated budget categories first
+    await db.delete(budgetCategories).where(eq(budgetCategories.budgetId, id));
+    
+    // Then delete the budget
+    const [deleted] = await db
+      .delete(budgets)
+      .where(eq(budgets.id, id))
+      .returning({ id: budgets.id });
+    return !!deleted;
+  }
+  
+  /*** Budget category methods ***/
+  
+  async getBudgetCategories(budgetId: number): Promise<BudgetCategory[]> {
+    return db
+      .select()
+      .from(budgetCategories)
+      .where(eq(budgetCategories.budgetId, budgetId));
+  }
+  
+  async getBudgetCategory(id: number): Promise<BudgetCategory | undefined> {
+    const [budgetCategory] = await db.select().from(budgetCategories).where(eq(budgetCategories.id, id));
+    return budgetCategory;
+  }
+  
+  async createBudgetCategory(budgetCategoryData: InsertBudgetCategory): Promise<BudgetCategory> {
+    const [budgetCategory] = await db.insert(budgetCategories).values(budgetCategoryData).returning();
+    return budgetCategory;
+  }
+  
+  async updateBudgetCategory(id: number, budgetCategoryData: Partial<InsertBudgetCategory>): Promise<BudgetCategory | undefined> {
+    const [updatedBudgetCategory] = await db
+      .update(budgetCategories)
+      .set(budgetCategoryData)
+      .where(eq(budgetCategories.id, id))
+      .returning();
+    return updatedBudgetCategory;
+  }
+  
+  async deleteBudgetCategory(id: number): Promise<boolean> {
+    const [deleted] = await db
+      .delete(budgetCategories)
+      .where(eq(budgetCategories.id, id))
+      .returning({ id: budgetCategories.id });
+    return !!deleted;
+  }
+  
+  async getBudgetProgress(budgetId: number): Promise<{ category: string; budgeted: number; spent: number; remaining: number; progress: number }[]> {
+    // First, get the budget to determine date range
+    const budget = await this.getBudget(budgetId);
+    if (!budget) {
+      return [];
+    }
+    
+    // Get all budget categories for this budget
+    const budgetCategoriesData = await this.getBudgetCategories(budgetId);
+    
+    // Extract category IDs
+    const categoryIds = budgetCategoriesData.map(bc => bc.categoryId);
+    
+    // Get category names
+    const categoryList = await db
+      .select()
+      .from(categories)
+      .where(sql`${categories.id} IN (${categoryIds.join(',')})`);
+    
+    const categoryMap = new Map<number, string>();
+    categoryList.forEach(cat => {
+      categoryMap.set(cat.id, cat.name);
+    });
+    
+    // Create a map of category ID to max amount
+    const categoryBudgetMap = new Map<number, number>();
+    budgetCategoriesData.forEach(bc => {
+      categoryBudgetMap.set(bc.categoryId, bc.maxAmount);
+    });
+    
+    // Format dates for query
+    const startDateStr = budget.startDate.toISOString().split('T')[0];
+    const endDateStr = budget.endDate ? budget.endDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    
+    // Get transactions for each category in the date range
+    const result = await Promise.all(
+      categoryIds.map(async (categoryId) => {
+        const categoryName = categoryMap.get(categoryId) || 'Unknown';
+        const budgetedAmount = categoryBudgetMap.get(categoryId) || 0;
+        
+        // Get the transactions for this category
+        const categoryTransactions = await db.execute<{ total: string }>(sql`
+          SELECT 
+            COALESCE(SUM(amount), 0) as total 
+          FROM 
+            ${transactions} 
+          WHERE 
+            user_id = ${budget.userId} 
+            AND category = ${categoryName}
+            AND type = 'debit' 
+            AND date >= ${startDateStr} 
+            AND date <= ${endDateStr}
+        `);
+        
+        const spentAmount = parseFloat(categoryTransactions.rows[0]?.total || '0');
+        const remainingAmount = Math.max(0, budgetedAmount - spentAmount);
+        const progressPercentage = budgetedAmount > 0 ? Math.min(100, (spentAmount / budgetedAmount) * 100) : 0;
+        
+        return {
+          category: categoryName,
+          budgeted: budgetedAmount,
+          spent: spentAmount,
+          remaining: remainingAmount,
+          progress: progressPercentage
+        };
+      })
+    );
+    
+    return result;
   }
 
   /*** Analytics methods ***/
