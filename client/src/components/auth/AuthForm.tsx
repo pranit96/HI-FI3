@@ -39,7 +39,9 @@ const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z
     .string()
-    .min(6, "Password must be at least 6 characters"),
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character"),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -107,7 +109,7 @@ export default function AuthForm({ defaultTab = "login" }: Props) {
           <TabsTrigger value="login">Login</TabsTrigger>
           <TabsTrigger value="register">Register</TabsTrigger>
         </TabsList>
-        
+
         {/* Login Tab */}
         <TabsContent value="login">
           <CardHeader>
@@ -170,7 +172,7 @@ export default function AuthForm({ defaultTab = "login" }: Props) {
             </p>
           </CardFooter>
         </TabsContent>
-        
+
         {/* Register Tab */}
         <TabsContent value="register">
           <CardHeader>
@@ -218,7 +220,7 @@ export default function AuthForm({ defaultTab = "login" }: Props) {
                         <Input placeholder="••••••••" {...field} type="password" />
                       </FormControl>
                       <FormDescription>
-                        Must be at least 6 characters
+                        Must be at least 8 characters, contain at least one uppercase letter and one special character.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

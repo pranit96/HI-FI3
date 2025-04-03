@@ -14,7 +14,18 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
   try {
     // Validate request body
+    // Password validation regex
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+    
     const validation = insertUserSchema.safeParse(req.body);
+    
+    // Additional password validation
+    if (!passwordRegex.test(req.body.password)) {
+      return res.status(400).json({
+        error: 'Invalid password',
+        details: 'Password must contain at least 8 characters, one uppercase letter, and one special character'
+      });
+    }
     
     if (!validation.success) {
       return res.status(400).json({
