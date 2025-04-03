@@ -80,10 +80,8 @@ function App() {
         <ProtectedRoute path="/settings">
           <Settings />
         </ProtectedRoute>
-        {/* Admin route is accessible only directly via URL */}
-        <Route path="/admin">
-          <Admin />
-        </Route>
+        {/* Admin route is accessible only directly via URL and doesn't use DashboardLayout */}
+        <Route path="/admin" component={Admin} />
         
         {/* 404 route */}
         <Route component={NotFound} />

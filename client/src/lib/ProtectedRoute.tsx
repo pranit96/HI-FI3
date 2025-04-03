@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Route, Redirect } from "wouter";
 import { useAuth } from "@/hooks/use-auth-simple";
 import { Loader2 } from "lucide-react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 
 interface ProtectedRouteProps {
   path: string;

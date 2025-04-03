@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import * as pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 import { InsertTransaction } from '@shared/schema';
 
 type PDFData = {
