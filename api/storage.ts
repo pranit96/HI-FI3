@@ -155,7 +155,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(bankStatements)
       .where(eq(bankStatements.userId, userId))
-      .orderBy(desc(bankStatements.createdAt));
+      .orderBy(desc(bankStatements.uploadedAt));
   }
   
   async getBankStatement(id: number): Promise<BankStatement | undefined> {

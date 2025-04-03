@@ -22,6 +22,8 @@ interface RegisterCredentials {
   email: string;
   password: string;
   confirmPassword: string;
+  currency?: string;
+  monthlySalary?: number | null;
 }
 
 export function useAuth() {
@@ -34,6 +36,31 @@ export function useAuth() {
   const { data: user, isLoading: isLoadingUser, isError } = useQuery({
     queryKey: ['/api/auth/me'],
     retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: false,
+    meta: {
+      suppressErrorToast: true
+    },
+    // This will allow 401 responses to be treated as a successful
+    // response with null data, not as errors
+    queryFn: async () => {
+      const response = await fetch("/api/auth/me", {
+        credentials: "include"
+      });
+      
+      if (response.status === 401) {
+        return null;
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      return response.json();
+    }
   });
 
   // Login function

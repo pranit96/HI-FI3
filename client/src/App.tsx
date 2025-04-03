@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route } from "wouter";
 import Dashboard from "@/pages/Dashboard";
 import Transactions from "@/pages/Transactions";
 import Analytics from "@/pages/Analytics";
@@ -13,7 +13,7 @@ import OnboardingForm from "@/components/onboarding/OnboardingForm";
 import IntroScreen from "@/components/intro/IntroScreen";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/hooks/use-auth-simple";
-import ProtectedRoute from "@/lib/ProtectedRoute";
+import { ProtectedRoute } from "@/lib/ProtectedRoute";
 
 function App() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);

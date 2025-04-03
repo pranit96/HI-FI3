@@ -10,14 +10,14 @@ export default function Footer() {
           <p className="text-sm text-muted-foreground">© {currentYear} FinSavvy. All rights reserved.</p>
         </div>
         <div className="flex space-x-6">
-          <Link href="/privacy">
-            <a className="text-sm text-muted-foreground hover:text-primary">Privacy Policy</a>
+          <Link href="/privacy" className="text-sm text-muted-foreground hover:text-primary">
+            Privacy Policy
           </Link>
-          <Link href="/terms">
-            <a className="text-sm text-muted-foreground hover:text-primary">Terms of Service</a>
+          <Link href="/terms" className="text-sm text-muted-foreground hover:text-primary">
+            Terms of Service
           </Link>
-          <Link href="/support">
-            <a className="text-sm text-muted-foreground hover:text-primary">Contact Support</a>
+          <Link href="/support" className="text-sm text-muted-foreground hover:text-primary">
+            Contact Support
           </Link>
         </div>
       </div>

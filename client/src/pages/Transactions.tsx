@@ -56,9 +56,9 @@ type BankAccount = {
 
 export default function Transactions() {
   const { toast } = useToast();
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all-categories");
   const [accountFilter, setAccountFilter] = useState<number | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("all-types");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
@@ -98,17 +98,17 @@ export default function Transactions() {
   // Apply filters to transactions
   const filteredTransactions = transactions.filter(transaction => {
     // Filter by category
-    if (categoryFilter && transaction.category !== categoryFilter) {
+    if (categoryFilter && categoryFilter !== "all-categories" && transaction.category !== categoryFilter) {
       return false;
     }
     
     // Filter by bank account
-    if (accountFilter && transaction.bankAccountId !== accountFilter) {
+    if (accountFilter !== null && transaction.bankAccountId !== accountFilter) {
       return false;
     }
     
     // Filter by transaction type
-    if (typeFilter && transaction.type !== typeFilter) {
+    if (typeFilter && typeFilter !== "all-types" && transaction.type !== typeFilter) {
       return false;
     }
     
@@ -225,7 +225,7 @@ export default function Transactions() {
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Categories</SelectItem>
+                      <SelectItem value="all-categories">All Categories</SelectItem>
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.name}>
                           {category.name}
@@ -235,14 +235,14 @@ export default function Transactions() {
                   </Select>
 
                   <Select 
-                    value={accountFilter?.toString() || ""} 
-                    onValueChange={(val) => setAccountFilter(val ? parseInt(val) : null)}
+                    value={accountFilter?.toString() || "all-accounts"} 
+                    onValueChange={(val) => setAccountFilter(val === "all-accounts" ? null : parseInt(val))}
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Bank Account" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Accounts</SelectItem>
+                      <SelectItem value="all-accounts">All Accounts</SelectItem>
                       {bankAccounts.map((account) => (
                         <SelectItem key={account.id} value={account.id.toString()}>
                           {account.name}
@@ -256,7 +256,7 @@ export default function Transactions() {
                       <SelectValue placeholder="Transaction Type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Types</SelectItem>
+                      <SelectItem value="all-types">All Types</SelectItem>
                       <SelectItem value="credit">Credit</SelectItem>
                       <SelectItem value="debit">Debit</SelectItem>
                     </SelectContent>
@@ -267,9 +267,9 @@ export default function Transactions() {
                     size="icon"
                     onClick={() => {
                       setSearchTerm("");
-                      setCategoryFilter("");
+                      setCategoryFilter("all-categories");
                       setAccountFilter(null);
-                      setTypeFilter("");
+                      setTypeFilter("all-types");
                       setStartDate(undefined);
                       setEndDate(undefined);
                     }}
