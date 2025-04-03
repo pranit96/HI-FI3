@@ -5,6 +5,7 @@ import Transactions from "@/pages/Transactions";
 import Analytics from "@/pages/Analytics";
 import Goals from "@/pages/Goals";
 import Settings from "@/pages/Settings";
+import Admin from "@/pages/Admin";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/not-found";
@@ -112,6 +113,13 @@ function App() {
           {user ? (
             <DashboardLayout>
               <Settings />
+            </DashboardLayout>
+          ) : <Login />}
+        </Route>
+        <Route path="/admin">
+          {user ? (
+            <DashboardLayout>
+              <Admin />
             </DashboardLayout>
           ) : <Login />}
         </Route>

@@ -6,28 +6,39 @@ import { useToast } from '@/hooks/use-toast';
 const IntroScreen = () => {
   const [active, setActive] = useState(true);
   const [grains, setGrains] = useState<Array<{ id: number; x: number; y: number; size: number; opacity: number }>>([]);
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // Create grain particles
   useEffect(() => {
-    const grainCount = window.innerWidth < 768 ? 40 : 80;
+    // Create more particles for desktop, fewer for mobile
+    const grainCount = window.innerWidth < 768 ? 60 : 120;
     const newGrains = [];
     
+    // Create particles with better distribution
     for (let i = 0; i < grainCount; i++) {
+      // Use golden ratio to create a more even distribution
+      const phi = (Math.sqrt(5) + 1) / 2 - 1; // Golden ratio minus 1
+      const theta = i * phi * 2 * Math.PI;
+      
+      // Convert to cartesian coordinates (with some randomness)
+      const radius = Math.sqrt(Math.random()) * 90; // Square root for better distribution
+      const x = 50 + radius * Math.cos(theta);
+      const y = 50 + radius * Math.sin(theta);
+      
       newGrains.push({
         id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 8 + 2,
-        opacity: Math.random() * 0.5 + 0.1
+        x,
+        y,
+        size: Math.random() * 6 + 1, // Smaller particles look more elegant
+        opacity: Math.random() * 0.3 + 0.1 // More subtle opacity
       });
     }
     
     setGrains(newGrains);
     
-    // Add event listener for particle movement on mouse move
+    // Add event listener for smooth particle movement on mouse move
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
       
@@ -35,33 +46,53 @@ const IntroScreen = () => {
       const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
       const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
       
-      setGrains(prev => prev.map(grain => {
-        // Calculate distance from mouse
-        const dx = grain.x - mouseX;
-        const dy = grain.y - mouseY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // Move particles away from mouse
-        if (distance < 20) {
-          const angle = Math.atan2(dy, dx);
-          const force = (20 - distance) / 5;
+      // Use requestAnimationFrame for smoother animations
+      requestAnimationFrame(() => {
+        setGrains(prev => prev.map(grain => {
+          // Calculate distance from mouse
+          const dx = grain.x - mouseX;
+          const dy = grain.y - mouseY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
           
+          // Move particles away from mouse with easing
+          if (distance < 30) { // Increased radius of effect
+            const angle = Math.atan2(dy, dx);
+            // Cubic easing function for smoother force application
+            const force = Math.pow((30 - distance) / 30, 2) * 8;
+            
+            return {
+              ...grain,
+              x: Math.max(0, Math.min(100, grain.x + Math.cos(angle) * force)),
+              y: Math.max(0, Math.min(100, grain.y + Math.sin(angle) * force)),
+              opacity: Math.min(0.5, grain.opacity + 0.05) // Subtle opacity increase
+            };
+          }
+          
+          // Gentle return to original position when far from mouse
           return {
             ...grain,
-            x: Math.max(0, Math.min(100, grain.x + Math.cos(angle) * force)),
-            y: Math.max(0, Math.min(100, grain.y + Math.sin(angle) * force)),
-            opacity: Math.min(0.7, grain.opacity + 0.1)
+            opacity: Math.max(grain.opacity * 0.98, 0.1) // Gradually fade back
           };
-        }
-        
-        return grain;
-      }));
+        }));
+      });
     };
     
     window.addEventListener('mousemove', handleMouseMove);
     
+    // Create autonomous gentle movement
+    const interval = setInterval(() => {
+      requestAnimationFrame(() => {
+        setGrains(prev => prev.map(grain => ({
+          ...grain,
+          x: grain.x + (Math.random() - 0.5) * 0.2,
+          y: grain.y + (Math.random() - 0.5) * 0.2,
+        })));
+      });
+    }, 2000); // Slow, gentle movement
+    
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
+      clearInterval(interval);
     };
   }, []);
 
@@ -78,7 +109,7 @@ const IntroScreen = () => {
     
     // Redirect to login after animation completes
     setTimeout(() => {
-      setLocation('/login');
+      navigate('/login');
     }, 1000);
   };
 

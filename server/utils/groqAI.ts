@@ -1,7 +1,44 @@
 import { Transaction, Insight, Goal, InsertInsight, InsertGoal } from '@shared/schema';
+import { Groq } from 'groq-sdk';
 
 // Groq API Key
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+
+// Initialize Groq client
+const groq = GROQ_API_KEY ? new Groq({ apiKey: GROQ_API_KEY }) : null;
+
+/**
+ * Generic function to analyze text using Groq AI
+ * @param text - The text to analyze
+ * @returns The AI's response
+ */
+export async function analyzeWithGroq(text: string): Promise<string> {
+  try {
+    if (!GROQ_API_KEY || !groq) {
+      throw new Error('GROQ_API_KEY is not set. Cannot analyze text.');
+    }
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful financial analysis assistant.'
+        },
+        {
+          role: 'user',
+          content: text
+        }
+      ],
+      model: 'llama3-8b-8192',
+      temperature: 0.7,
+    });
+
+    return chatCompletion.choices[0]?.message?.content || 'No response generated';
+  } catch (error) {
+    console.error('Error using Groq AI:', error);
+    throw error;
+  }
+}
 
 // Function to categorize transactions
 export async function categorizeTransactions(transactions: Transaction[]): Promise<Transaction[]> {

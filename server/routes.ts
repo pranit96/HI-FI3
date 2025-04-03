@@ -16,6 +16,8 @@ import { promises as fs } from "fs";
 import { parseBankStatement } from "./utils/pdfParser";
 import { categorizeTransactions, generateSpendingInsights, suggestFinancialGoals } from "./utils/groqAI";
 import { emailService } from "./utils/emailService";
+import { sendGridEmailService } from "./utils/sendGridEmailService";
+import { analyzeWithGroq } from "./utils/groqAI";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MemoryStore from "memorystore";
@@ -749,6 +751,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Get income vs expenses error:", error);
       res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ADMIN ROUTES
+  
+  // Test email delivery
+  app.post("/api/admin/test-email", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { email, type } = z.object({
+        email: z.string().email(),
+        type: z.enum(["welcome", "report", "reminder", "analysis", "goal"])
+      }).parse(req.body);
+      
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      let result = false;
+      
+      // Use both email services for maximum compatibility
+      try {
+        switch (type) {
+          case "welcome":
+            result = await emailService.sendWelcomeEmail(user, email);
+            if (process.env.SENDGRID_API_KEY) {
+              await sendGridEmailService.sendWelcomeEmail(user, email);
+            }
+            break;
+          case "report":
+            result = await emailService.sendWeeklyReport(user, email);
+            if (process.env.SENDGRID_API_KEY) {
+              await sendGridEmailService.sendWeeklyReport(user, email);
+            }
+            break;
+          case "reminder":
+            result = await emailService.sendUploadReminder(user, email);
+            if (process.env.SENDGRID_API_KEY) {
+              await sendGridEmailService.sendUploadReminder(user, email);
+            }
+            break;
+          case "analysis":
+            // Mock data for testing
+            const mockStatement = {
+              id: 1,
+              fileName: "test_statement.pdf",
+              startDate: new Date(),
+              endDate: new Date(),
+              processed: true
+            };
+            const mockInsights = [
+              { id: 1, userId: user.id, content: "You spent 20% more on dining this month", type: "spending" }
+            ];
+            
+            result = await emailService.sendAnalysisComplete(user, mockStatement, mockInsights, email);
+            if (process.env.SENDGRID_API_KEY) {
+              await sendGridEmailService.sendAnalysisComplete(user, mockStatement, mockInsights, email);
+            }
+            break;
+          case "goal":
+            // Mock goal for testing
+            const mockGoal = {
+              id: 1,
+              userId: user.id,
+              name: "Emergency Fund",
+              targetAmount: 10000,
+              currentAmount: 5000,
+              deadline: new Date(new Date().setMonth(new Date().getMonth() + 6))
+            };
+            
+            result = await emailService.sendGoalProgress(user, mockGoal, email);
+            if (process.env.SENDGRID_API_KEY) {
+              await sendGridEmailService.sendGoalProgress(user, mockGoal, email);
+            }
+            break;
+        }
+        
+        res.status(200).json({ success: true });
+      } catch (error) {
+        console.error(`Failed to send ${type} email:`, error);
+        res.status(500).json({ success: false, message: error.message || "Failed to send email" });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = new ValidationError(error);
+        return res.status(400).json({ success: false, message: validationError.message });
+      }
+      console.error("Test email error:", error);
+      res.status(500).json({ success: false, message: error.message || "Server error" });
+    }
+  });
+  
+  // Test Groq API
+  app.post("/api/admin/test-groq", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { text } = z.object({
+        text: z.string().min(1)
+      }).parse(req.body);
+      
+      if (!process.env.GROQ_API_KEY) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "GROQ_API_KEY environment variable is not set" 
+        });
+      }
+      
+      // Use analyzeWithGroq function from groqAI.ts
+      const response = await analyzeWithGroq(text);
+      
+      res.status(200).json({ 
+        success: true, 
+        response 
+      });
+    } catch (error) {
+      console.error("Test Groq API error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error.message || "Failed to process with Groq API" 
+      });
+    }
+  });
+  
+  // Test database connection
+  app.get("/api/admin/test-database", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Try to fetch a simple record to test database connection
+      const user = await storage.getUser(req.session.userId!);
+      
+      if (user) {
+        res.status(200).json({ 
+          success: true, 
+          message: "Database connection successful" 
+        });
+      } else {
+        res.status(404).json({ 
+          success: false, 
+          message: "User not found in database" 
+        });
+      }
+    } catch (error) {
+      console.error("Test database error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error.message || "Database connection failed" 
+      });
     }
   });
 

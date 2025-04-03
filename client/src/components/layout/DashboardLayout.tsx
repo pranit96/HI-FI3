@@ -8,7 +8,8 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -53,6 +54,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: 'Analytics', path: '/analytics', icon: <BarChart2 className="h-5 w-5" /> },
     { name: 'Goals', path: '/goals', icon: <Target className="h-5 w-5" /> },
     { name: 'Settings', path: '/settings', icon: <Settings className="h-5 w-5" /> },
+    { name: 'Admin', path: '/admin', icon: <Shield className="h-5 w-5" /> },
   ];
   
   // Handle logout
