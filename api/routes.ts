@@ -795,23 +795,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get monthly expenses by category
   app.get("/api/analytics/expenses-by-category", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.session.userId!;
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
 
-      // Parse query parameters
+      // Parse and validate query parameters
       const { year, month } = z.object({
         year: z.string().regex(/^\d{4}$/).transform(val => parseInt(val)),
         month: z.string().regex(/^([1-9]|1[0-2])$/).transform(val => parseInt(val))
       }).parse(req.query);
 
+      // Validate date range
+      const currentDate = new Date();
+      if (year > currentDate.getFullYear() + 1) {
+        return res.status(400).json({ message: "Invalid year - cannot be more than 1 year in future" });
+      }
+
       const expenses = await storage.getMonthlyExpensesByCategory(userId, year, month);
-      res.status(200).json(expenses);
+      
+      // Return empty array if no data instead of error
+      res.status(200).json(expenses || []);
     } catch (error) {
       if (error instanceof z.ZodError) {
         const validationError = new ValidationError(error);
         return res.status(400).json({ message: validationError.message });
       }
       console.error("Get expense analytics error:", error);
-      res.status(500).json({ message: "Server error" });
+      res.status(500).json({ message: "Failed to fetch expense analytics" });
     }
   });
 
