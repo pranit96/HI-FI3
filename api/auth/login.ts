@@ -53,6 +53,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       { expiresIn: '7d' }
     );
 
+    // Set auth token in cookie
+    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Strict`);
+    
     // Return user and token
     return res.status(200).json({
       message: 'Login successful',

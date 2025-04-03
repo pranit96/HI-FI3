@@ -30,13 +30,19 @@ const verifyToken = async (token: string): Promise<User | null> => {
 
 // Extract token from request
 const getTokenFromRequest = (req: NextApiRequest): string | null => {
-  // Check authorization header
+  // First check Authorization header
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return authHeader.substring(7);
   }
   
-  // Check cookies
+  // Then check auth-token header (used by client)
+  const authTokenHeader = req.headers['auth-token'];
+  if (authTokenHeader) {
+    return Array.isArray(authTokenHeader) ? authTokenHeader[0] : authTokenHeader;
+  }
+  
+  // Finally check cookies
   if (req.cookies && req.cookies.token) {
     return req.cookies.token;
   }

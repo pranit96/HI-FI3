@@ -47,11 +47,17 @@ export function useAuth() {
     // This will allow 401 responses to be treated as a successful
     // response with null data, not as errors
     queryFn: async () => {
+      const token = localStorage.getItem('auth-token');
       const response = await fetch("/api/auth/me", {
-        credentials: "include"
+        credentials: "include",
+        headers: token ? {
+          'Authorization': `Bearer ${token}`,
+          'auth-token': token
+        } : {}
       });
       
       if (response.status === 401) {
+        localStorage.removeItem('auth-token');
         return null;
       }
       
@@ -83,12 +89,15 @@ export function useAuth() {
         throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
       }
 
-      // Get user data from response
-      const userData = await response.json();
-      console.log("Login successful, user data received:", userData);
+      // Get user data and token from response
+      const { user, token } = await response.json();
+      console.log("Login successful, user data received:", user);
+      
+      // Store token
+      localStorage.setItem('auth-token', token);
       
       // Update query cache
-      await queryClient.setQueryData(['/api/auth/me'], userData);
+      await queryClient.setQueryData(['/api/auth/me'], user);
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       
       toast({
