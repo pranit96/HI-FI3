@@ -3,7 +3,7 @@ import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { registerRoutes } from '../api/routes';
 import path from 'path';
-import { promises as fs } from 'fs';
+import fs from 'fs';
 
 const app = express();
 app.use(express.json());
@@ -32,9 +32,11 @@ app.get('*', (req, res) => {
   // Only serve index.html for non-API routes
   if (!req.path.startsWith('/api')) {
     const indexPath = path.join(process.cwd(), 'dist/public/index.html');
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
+    try {
+      if (fs.statSync(indexPath).isFile()) {
+        res.sendFile(indexPath);
+      }
+    } catch (err) {
       res.status(404).send('Frontend not built. Please run npm run build first.');
     }
   }
