@@ -53,7 +53,6 @@ export default function UploadSection() {
       const response = await fetch('/api/bank-statements/upload', {
         method: 'POST',
         body: formData,
-        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
           ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {}),
@@ -186,10 +185,15 @@ export default function UploadSection() {
     }
 
     const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('statements', file);
-    });
+    if (isMultipleUpload) {
+      files.forEach((file) => {
+        formData.append('statements', file);
+      });
+    } else {
+      formData.append('statement', files[0]);
+    }
     formData.append("bankAccountId", selectedBankAccount.toString());
+
     uploadMutation.mutate(formData);
   };
 
@@ -406,8 +410,13 @@ export default function UploadSection() {
   );
 }
 
-// Placeholder - Replace with your actual authentication token retrieval function
+// Improved getAuthToken function
 function getAuthToken(): string {
   //  Logic to retrieve the authentication token from local storage, cookies, etc.
-  return localStorage.getItem('authToken') || '';
+  const token = localStorage.getItem('authToken');
+    if(token){
+        return token;
+    } else {
+        return "";
+    }
 }
