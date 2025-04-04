@@ -218,7 +218,7 @@ export default function Settings() {
       });
     },
   });
-  
+
   // Delete user data mutation
   const deleteDataMutation = useMutation({
     mutationFn: async (type: 'transactions' | 'statements' | 'all') => {
@@ -231,24 +231,24 @@ export default function Settings() {
         statements: "All bank statements have been deleted",
         all: "All your financial data has been deleted"
       };
-      
+
       toast({
         title: "Data deleted",
         description: messages[type],
         variant: "success",
       });
-      
+
       // Invalidate relevant queries
       if (type === 'transactions' || type === 'all') {
         queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
         queryClient.invalidateQueries({ queryKey: ['/api/analytics/income-vs-expenses'] });
         queryClient.invalidateQueries({ queryKey: ['/api/analytics/expenses-by-category'] });
       }
-      
+
       if (type === 'statements' || type === 'all') {
         queryClient.invalidateQueries({ queryKey: ['/api/bank-statements'] });
       }
-      
+
       if (type === 'all') {
         queryClient.invalidateQueries({ queryKey: ['/api/goals'] });
         queryClient.invalidateQueries({ queryKey: ['/api/insights'] });
@@ -634,7 +634,7 @@ export default function Settings() {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           {/* Data & Privacy Tab */}
           <TabsContent value="privacy">
             <Card>
@@ -650,7 +650,7 @@ export default function Settings() {
                   <p className="text-sm text-muted-foreground mb-4">
                     You can delete various parts of your data from our system. This action cannot be undone.
                   </p>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="border rounded-lg p-4 space-y-3">
                       <h4 className="font-medium">Transaction Data</h4>
@@ -666,7 +666,7 @@ export default function Settings() {
                         {deleteDataMutation.isPending ? "Deleting..." : "Delete Transactions"}
                       </Button>
                     </div>
-                    
+
                     <div className="border rounded-lg p-4 space-y-3">
                       <h4 className="font-medium">Statement Data</h4>
                       <p className="text-sm text-muted-foreground">
@@ -681,7 +681,7 @@ export default function Settings() {
                         {deleteDataMutation.isPending ? "Deleting..." : "Delete Statements"}
                       </Button>
                     </div>
-                    
+
                     <div className="border rounded-lg p-4 space-y-3">
                       <h4 className="font-medium">All Financial Data</h4>
                       <p className="text-sm text-muted-foreground">
@@ -690,8 +690,20 @@ export default function Settings() {
                       <Button 
                         variant="destructive" 
                         onClick={() => {
-                          if (confirm("Are you sure you want to delete ALL your financial data? This cannot be undone.")) {
-                            deleteDataMutation.mutate('all');
+                          const confirmed = window.confirm(
+                            "Are you sure you want to delete ALL your data? This action cannot be undone and will delete:\n\n" +
+                            "- All transactions\n" +
+                            "- All bank statements\n" +
+                            "- All financial goals\n" +
+                            "- All insights and analytics\n\n" +
+                            "Please type 'DELETE' to confirm."
+                          );
+
+                          if (confirmed) {
+                            const userInput = window.prompt("Type 'DELETE' to confirm:");
+                            if (userInput === 'DELETE') {
+                              deleteDataMutation.mutate('all');
+                            }
                           }
                         }}
                         disabled={deleteDataMutation.isPending}
@@ -702,9 +714,9 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div>
                   <h3 className="text-lg font-medium mb-2">Privacy Policy</h3>
                   <div className="rounded-lg border p-4 bg-muted/50 max-h-64 overflow-y-auto">
@@ -712,38 +724,38 @@ export default function Settings() {
                     <p className="text-sm mb-3">
                       At Finvue, we take your privacy and data security seriously. Here's how we handle your financial information:
                     </p>
-                    
+
                     <h5 className="font-medium text-sm mb-1">Data Collection</h5>
                     <p className="text-sm mb-2">
                       We collect information you explicitly provide, such as bank statements, financial goals, and account details.
                       PDF bank statements are processed securely and then immediately deleted from our servers once the processing is complete.
                     </p>
-                    
+
                     <h5 className="font-medium text-sm mb-1">Data Storage</h5>
                     <p className="text-sm mb-2">
                       All your financial data is stored in encrypted format. We employ industry-standard security measures
                       to protect against unauthorized access, alteration, disclosure, or destruction of your personal information.
                     </p>
-                    
+
                     <h5 className="font-medium text-sm mb-1">Data Processing</h5>
                     <p className="text-sm mb-2">
                       We use AI technologies to analyze your financial data solely for the purpose of providing 
                       insights, recommendations, and reports to you. This processing is performed securely
                       and in compliance with applicable regulations.
                     </p>
-                    
+
                     <h5 className="font-medium text-sm mb-1">Third-Party Services</h5>
                     <p className="text-sm mb-2">
                       We use certain third-party services like Groq AI for data processing and SendGrid for email
                       communication. These providers have strict data protection policies and do not store your financial data.
                     </p>
-                    
+
                     <h5 className="font-medium text-sm mb-1">Regulatory Compliance</h5>
                     <p className="text-sm mb-2">
                       Our financial data handling practices comply with relevant financial regulations and data protection laws.
                       We are committed to maintaining the highest standards of security and privacy.
                     </p>
-                    
+
                     <h5 className="font-medium text-sm mb-1">Your Rights</h5>
                     <p className="text-sm">
                       You have the right to access, modify, and delete your personal data at any time using the tools provided

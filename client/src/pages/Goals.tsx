@@ -248,7 +248,7 @@ export default function Goals() {
         <div className="lg:col-span-9 xl:col-span-10 space-y-6">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold font-heading">Financial Goals</h1>
-            
+
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
@@ -258,7 +258,7 @@ export default function Goals() {
                 <LightbulbIcon className="h-4 w-4 mr-2" />
                 Get AI Suggestions
               </Button>
-              
+
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button>
@@ -273,7 +273,7 @@ export default function Goals() {
                       Set a clear target to help you save and track your progress.
                     </DialogDescription>
                   </DialogHeader>
-                  
+
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField
@@ -289,7 +289,7 @@ export default function Goals() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="targetAmount"
@@ -312,7 +312,7 @@ export default function Goals() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="deadline"
@@ -356,7 +356,7 @@ export default function Goals() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="description"
@@ -374,7 +374,7 @@ export default function Goals() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <DialogFooter>
                         <Button 
                           type="submit" 
@@ -399,7 +399,7 @@ export default function Goals() {
               </Dialog>
             </div>
           </div>
-          
+
           {/* AI Suggestions */}
           {suggestedGoals.length > 0 && (
             <Card className="border-dashed border-2 border-primary/50 bg-primary/5">
@@ -445,7 +445,7 @@ export default function Goals() {
               </CardContent>
             </Card>
           )}
-          
+
           {/* User's Goals */}
           {goals.length === 0 ? (
             <Card>
@@ -457,12 +457,55 @@ export default function Goals() {
                 <p className="text-muted-foreground text-center max-w-md mb-6">
                   Setting financial goals is a great way to stay motivated and track your progress towards financial independence.
                 </p>
-                <Dialog>
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
                     <Button>Create Your First Goal</Button>
                   </DialogTrigger>
                   <DialogContent>
-                    {/* Same form content as above */}
+                    <DialogHeader>
+                      <DialogTitle>Create a New Financial Goal</DialogTitle>
+                      <DialogDescription>
+                        Set a clear target to help you save and track your progress.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Goal Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Emergency Fund" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="targetAmount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Target Amount</FormLabel>
+                              <FormControl>
+                                <Input type="number" min="1" step="any" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <DialogFooter>
+                          <Button type="submit" disabled={createGoalMutation.isPending}>
+                            {createGoalMutation.isPending ? "Creating..." : "Create Goal"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
                   </DialogContent>
                 </Dialog>
               </CardContent>
@@ -474,7 +517,7 @@ export default function Goals() {
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-base">{goal.name}</CardTitle>
-                      
+
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -511,7 +554,7 @@ export default function Goals() {
                     {goal.description && (
                       <p className="text-sm text-muted-foreground mb-3">{goal.description}</p>
                     )}
-                    
+
                     <div className="mb-2">
                       <div className="flex justify-between text-sm mb-1">
                         <span>Progress</span>
@@ -526,7 +569,7 @@ export default function Goals() {
                         ></div>
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
                         {formatCurrency(goal.currentAmount, user?.currency)} of {formatCurrency(goal.targetAmount, user?.currency)}

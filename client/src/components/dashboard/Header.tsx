@@ -28,16 +28,16 @@ export default function Header() {
   const handleLogout = async () => {
     try {
       await apiRequest('POST', '/api/auth/logout', {});
-      
+
       // Clear all queries from cache
       queryClient.clear();
-      
+
       toast({
         title: "Logged out successfully",
         description: "You have been logged out of your account.",
         variant: "default",
       });
-      
+
       // Redirect to home page which will show login form
       setLocation('/');
     } catch (error) {
@@ -58,14 +58,17 @@ export default function Header() {
         </svg>
         <h1 className="text-2xl font-bold font-heading ml-2">Finvue</h1>
       </div>
-      
+
       <div className="flex items-center">
         <Button variant="ghost" size="icon" className="mr-2" aria-label="Notifications">
           <Bell className="h-5 w-5" />
         </Button>
-        
+
         <ThemeToggle />
-        
+        <Button variant="outline" onClick={handleLogout} className="ml-4">
+          Logout
+        </Button>
+
         <div className="flex items-center ml-4">
           <Avatar className="h-8 w-8">
             <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${user?.name || 'User'}`} alt={user?.name || 'User'} />
