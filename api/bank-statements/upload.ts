@@ -11,9 +11,10 @@ import crypto from 'crypto';
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.diskStorage({
-    destination: './uploads',
+    destination: (req, file, cb) => {
+      cb(null, './uploads');
+    },
     filename: (req, file, cb) => {
-      // Create a more secure random filename
       const randomBytes = crypto.randomBytes(16).toString('hex');
       const timestamp = Date.now();
       const filename = `${timestamp}-${randomBytes}${path.extname(file.originalname)}`;
@@ -25,11 +26,11 @@ const upload = multer({
     files: 5 // Allow up to 5 files per upload
   },
   fileFilter: (req, file, cb) => {
-    // Only allow PDF files
-    if (file.mimetype !== 'application/pdf') {
-      return cb(new Error('Only PDF files are allowed'));
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
     }
-    cb(null, true);
   }
 });
 

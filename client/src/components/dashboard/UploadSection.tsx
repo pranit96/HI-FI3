@@ -187,12 +187,12 @@ export default function UploadSection() {
     
     if (isMultipleUpload) {
       // For multiple file upload
-      files.forEach((file, index) => {
-        formData.append(`statements`, file);
+      files.forEach((file) => {
+        formData.append('statements', file);
       });
     } else {
       // For single file upload (backwards compatibility)
-      formData.append("statement", files[0]);
+      formData.append('statement', files[0]);
     }
     
     // Add bank account ID
@@ -271,7 +271,7 @@ export default function UploadSection() {
             id="file-upload"
             type="file"
             accept=".pdf"
-            multiple={isMultipleUpload}
+            multiple={true}
             className="hidden"
             onChange={handleFileChange}
           />
