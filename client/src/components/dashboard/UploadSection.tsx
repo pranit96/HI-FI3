@@ -44,9 +44,8 @@ export default function UploadSection() {
   // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async ({ formData, headers }: { formData: FormData, headers: Record<string, string> }) => {
-      // Get auth token -  Using getAuthToken for better practice
-      const token = getAuthToken();
-      if (!token) {
+      try {
+        const token = getAuthToken();
         throw new Error('Authentication required');
       }
 
@@ -419,11 +418,10 @@ export default function UploadSection() {
 
 // Improved getAuthToken function
 function getAuthToken(): string {
-  //  Logic to retrieve the authentication token from local storage, cookies, etc.
-  const token = localStorage.getItem('authToken');
-    if(token){
-        return token;
-    } else {
-        return "";
-    }
+  const token = localStorage.getItem('auth-token'); // Match the key used in auth hooks
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+  return token;
+}
 }
