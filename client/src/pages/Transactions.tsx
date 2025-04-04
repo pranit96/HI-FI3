@@ -408,7 +408,8 @@ function UploadBankStatementForm() {
     newFiles.splice(index, 1);
     setSelectedFiles(newFiles);
   };
-
+// Add to UploadBankStatementForm component
+const getAccessToken = () => localStorage.getItem('auth-token');
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       const token = await getAccessToken(); // Get the current auth token
@@ -417,8 +418,9 @@ function UploadBankStatementForm() {
         body: formData,
         headers: {
           'x-upload-type': 'multiple',
-          'Authorization': `Bearer ${token}`, // Add authorization header
+          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include' // Add this line
       });
       if (!response.ok) {
         const error = await response.json();
