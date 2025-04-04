@@ -185,16 +185,23 @@ export default function UploadSection() {
     }
 
     const formData = new FormData();
+    const fieldName = isMultipleUpload ? 'statements' : 'statement';
+    
     if (isMultipleUpload) {
       files.forEach((file) => {
-        formData.append('statements', file);
+        formData.append(fieldName, file);
       });
     } else {
-      formData.append('statement', files[0]);
+      formData.append(fieldName, files[0]);
     }
     formData.append("bankAccountId", selectedBankAccount.toString());
 
-    uploadMutation.mutate({formData, headers: isMultipleUpload ? { 'x-upload-type': 'multiple' } : {}});
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {})
+    };
+
+    uploadMutation.mutate({formData, headers});
   };
 
   // Loading state
@@ -267,7 +274,7 @@ export default function UploadSection() {
             id="file-upload"
             type="file"
             accept=".pdf"
-            multiple={true}
+            multiple={isMultipleUpload}
             className="hidden"
             onChange={handleFileChange}
           />
