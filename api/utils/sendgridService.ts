@@ -14,11 +14,11 @@ if (!process.env.SENDGRID_API_KEY) {
 // Email templates (can be shared with the existing emailService.ts)
 export const emailTemplates = {
   welcome: (user: User) => ({
-    subject: 'Welcome to Finance Hub!',
+    subject: 'Welcome to FinVue - Your Financial Journey Begins',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #007bff; color: white; padding: 20px; text-align: center;">
-          <h1>Welcome to Finance Hub!</h1>
+      <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <div style="background-color: #0F172A; color: white; padding: 32px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 28px; color: #E2E8F0;">Welcome to FinVue</h1>
         </div>
         <div style="padding: 20px;">
           <p>Hello ${user.fullName},</p>

@@ -32,26 +32,31 @@ const transporter = nodemailer.createTransport({
 // Email templates
 export const emailTemplates = {
   welcome: (user: User) => ({
-    subject: 'Welcome to Finance Hub!',
-    text: `Hello ${user.name},\n\nWelcome to Finance Hub! We're excited to help you manage your finances and achieve your financial goals.\n\nTo get started, you can:\n1. Add your bank accounts\n2. Upload your bank statements\n3. Set your financial goals\n\nIf you have any questions, please don't hesitate to contact our support team.\n\nBest,\nThe Finance Hub Team`,
+    subject: 'Welcome to FinVue - Your Financial Journey Begins',
+    text: `Hello ${user.name},\n\nWelcome to FinVue! We're excited to help you take control of your financial future.\n\nTo get started:\n1. Upload your bank statements for instant analysis\n2. Set personalized financial goals\n3. Get AI-powered insights\n4. Track your spending patterns\n\nIf you have any questions, our support team is here to help.\n\nBest regards,\nThe FinVue Team`,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #007bff; color: white; padding: 20px; text-align: center;">
-          <h1>Welcome to Finance Hub!</h1>
+      <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <div style="background-color: #0F172A; color: white; padding: 32px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 28px; color: #E2E8F0;">Welcome to FinVue</h1>
         </div>
-        <div style="padding: 20px;">
-          <p>Hello ${user.name},</p>
-          <p>Welcome to Finance Hub! We're excited to help you manage your finances and achieve your financial goals.</p>
-          <p>To get started, you can:</p>
-          <ol>
-            <li>Add your bank accounts</li>
-            <li>Upload your bank statements</li>
-            <li>Set your financial goals</li>
-          </ol>
-          <p>If you have any questions, please don't hesitate to contact our support team.</p>
-          <p>Best,<br>The Finance Hub Team</p>
+        <div style="padding: 32px 24px; color: #1E293B;">
+          <p style="font-size: 16px; margin-bottom: 24px;">Hello ${user.name},</p>
+          <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Welcome to FinVue! We're excited to help you achieve your financial goals with our intelligent financial management platform.</p>
+          <div style="background-color: #F8FAFC; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
+            <h2 style="color: #0F172A; font-size: 20px; margin-top: 0;">Get Started in 4 Simple Steps:</h2>
+            <ol style="padding-left: 20px;">
+              <li style="margin-bottom: 12px; color: #334155;">Upload your bank statements for instant analysis</li>
+              <li style="margin-bottom: 12px; color: #334155;">Set personalized financial goals</li>
+              <li style="margin-bottom: 12px; color: #334155;">Get AI-powered insights into your spending</li>
+              <li style="margin-bottom: 12px; color: #334155;">Track your progress with interactive dashboards</li>
+            </ol>
+          </div>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="https://finvue.com/dashboard" style="background-color: #2563EB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">Go to Dashboard</a>
+          </div>
+          <p style="font-size: 16px; margin-top: 32px;">Best regards,<br>The FinVue Team</p>
         </div>
-        <div style="background-color: #f5f5f5; padding: 10px; text-align: center; font-size: 12px; color: #666;">
+        <div style="background-color: #F1F5F9; padding: 16px; text-align: center; font-size: 14px; color: #64748B; border-radius: 0 0 8px 8px;">
           <p>This is an automated email. Please do not reply to this message.</p>
         </div>
       </div>
