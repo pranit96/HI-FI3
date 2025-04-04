@@ -5,7 +5,8 @@ import { drizzle } from 'drizzle-orm/neon-http';
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error('DATABASE_URL environment variable is not set');
+  console.error('Database configuration error: DATABASE_URL environment variable is not set');
+  throw new Error('Database configuration error. Please check your environment variables and try again.');
 }
 
 // Create neon client

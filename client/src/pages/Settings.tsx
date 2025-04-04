@@ -738,6 +738,37 @@ export default function Settings() {
                     </p>
 
                     <h5 className="font-medium text-sm mb-1">Data Processing</h5>
+<div className="mt-4 space-y-4">
+  <Button variant="destructive" onClick={() => deleteTransactions()}>
+    Delete Transaction History
+  </Button>
+  <Button variant="destructive" onClick={() => deleteGoals()}>
+    Delete Goals
+  </Button>
+  <Button variant="destructive" onClick={() => deleteInsights()}>
+    Delete AI Insights
+  </Button>
+  <AlertDialog>
+    <AlertDialogTrigger asChild>
+      <Button variant="destructive">Delete Account</Button>
+    </AlertDialogTrigger>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+        <AlertDialogDescription>
+          This action cannot be undone. This will permanently delete your account
+          and remove your data from our servers.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction onClick={() => deleteAccount()}>
+          Delete Account
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+</div>
                     <p className="text-sm mb-2">
                       We use AI technologies to analyze your financial data solely for the purpose of providing 
                       insights, recommendations, and reports to you. This processing is performed securely
@@ -774,3 +805,41 @@ export default function Settings() {
     </div>
   );
 }
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Accessibility Settings</h3>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Text Size</Label>
+              <p className="text-sm text-muted-foreground">Adjust the size of text throughout the app</p>
+            </div>
+            <Select>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Normal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="small">Small</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="large">Large</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>High Contrast</Label>
+              <p className="text-sm text-muted-foreground">Increase contrast for better visibility</p>
+            </div>
+            <Switch />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Reduce Motion</Label>
+              <p className="text-sm text-muted-foreground">Minimize animations and transitions</p>
+            </div>
+            <Switch />
+          </div>
+        </div>
+      </div>

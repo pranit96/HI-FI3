@@ -7,6 +7,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { LogOut } from "lucide-react"; // Added import for LogOut icon
+
 
 type User = {
   id: number;
@@ -64,10 +66,13 @@ export default function Header() {
           <Bell className="h-5 w-5" />
         </Button>
 
-        <ThemeToggle />
-        <Button variant="outline" onClick={handleLogout} className="ml-4">
-          Logout
-        </Button>
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" /> {/* Added LogOut icon */}
+            Logout
+          </Button>
+          <ThemeToggle />
+        </div>
 
         <div className="flex items-center ml-4">
           <Avatar className="h-8 w-8">

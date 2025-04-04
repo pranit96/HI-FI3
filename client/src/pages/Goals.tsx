@@ -457,9 +457,9 @@ export default function Goals() {
                 <p className="text-muted-foreground text-center max-w-md mb-6">
                   Setting financial goals is a great way to stay motivated and track your progress towards financial independence.
                 </p>
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <Dialog>
                   <DialogTrigger asChild>
-                    <Button>Create Your First Goal</Button>
+                    <Button onClick={() => setIsAddDialogOpen(true)}>Create Your First Goal</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
