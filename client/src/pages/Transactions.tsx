@@ -130,28 +130,29 @@ function MonthlySalaryInput() {
     }
   });
   
-  const handleSave = () => {
-    const salaryValue = parseFloat(salary);
-    if (isNaN(salaryValue) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid number",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (salaryValue < 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Salary cannot be negative",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    updateMutation.mutate({ monthlySalary: salaryValue });
-  };
+const handleSave = () => {
+  const salaryValue = parseFloat(salary);
+  if (isNaN(salaryValue)) {  // Added missing parenthesis
+    toast({
+      title: "Invalid amount",
+      description: "Please enter a valid number",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  if (salaryValue < 0) {
+    toast({
+      title: "Invalid amount",
+      description: "Salary cannot be negative",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  updateMutation.mutate({ monthlySalary: salaryValue });
+};
+
   
   return (
     <div className="p-4 rounded-lg border">
@@ -258,28 +259,28 @@ function SavingsGoalInput() {
     }
   });
   
-  const handleSave = () => {
-    const goalValue = parseFloat(savingsGoal);
-    if (isNaN(goalValue)) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid number",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (goalValue < 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Savings goal cannot be negative",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    updateMutation.mutate({ savingsGoal: goalValue });
-  };
+const handleSave = () => {
+  const goalValue = parseFloat(savingsGoal);
+  if (isNaN(goalValue)) {  // Fixed syntax
+    toast({
+      title: "Invalid amount",
+      description: "Please enter a valid number",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  if (goalValue < 0) {
+    toast({
+      title: "Invalid amount",
+      description: "Savings goal cannot be negative",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  updateMutation.mutate({ savingsGoal: goalValue });
+};
   
   return (
     <div className="p-4 rounded-lg border">
