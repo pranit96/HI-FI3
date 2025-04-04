@@ -27,9 +27,7 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -89,6 +87,15 @@ type BankAccount = {
   color: string;
 };
 
+// Helper function to retrieve the auth token
+function getAuthToken(): string {
+  const token = localStorage.getItem('auth-token'); // Make sure this key matches your auth setup
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+  return token;
+}
+
 // Monthly Salary Input Component
 function MonthlySalaryInput() {
   const { toast } = useToast();
@@ -96,7 +103,6 @@ function MonthlySalaryInput() {
   const [salary, setSalary] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
   
-  // Set initial salary value when user data is loaded
   useEffect(() => {
     if (user?.monthlySalary) {
       setSalary(user.monthlySalary.toString());
@@ -136,7 +142,6 @@ function MonthlySalaryInput() {
       });
       return;
     }
-    
     updateMutation.mutate({ monthlySalary: salaryValue });
   };
   
@@ -212,7 +217,6 @@ function SavingsGoalInput() {
   const [savingsGoal, setSavingsGoal] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
   
-  // Get current user and settings
   const { data: user } = useQuery({ queryKey: ['/api/auth/me'] });
   const { data: settings } = useQuery({
     queryKey: ['/api/settings/savings-goal'],
@@ -255,7 +259,6 @@ function SavingsGoalInput() {
       });
       return;
     }
-    
     updateMutation.mutate({ savingsGoal: goalValue });
   };
   
@@ -332,14 +335,9 @@ function SavingsTracker() {
   const { data: transactions = [] } = useQuery({ queryKey: ['/api/transactions'] });
   const { data: monthlyData } = useQuery({ queryKey: ['/api/analytics/income-vs-expenses'] });
   
-  // Calculate actual savings
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  
   const actualSavings = (monthlyData?.income || 0) - (monthlyData?.expenses || 0);
   const savingsGoal = settings?.savingsGoal || 0;
   
-  // Calculate progress percentage
   let progressPercentage = 0;
   if (savingsGoal > 0 && actualSavings > 0) {
     progressPercentage = Math.min(Math.round((actualSavings / savingsGoal) * 100), 100);
@@ -350,42 +348,38 @@ function SavingsTracker() {
       <h3 className="text-sm font-semibold mb-2">Current Savings Progress</h3>
       <div className="mb-4">
         <div className="flex justify-between text-sm mb-1">
-          <span>
-            {formatCurrency(actualSavings, user?.currency)}
-          </span>
-          <span>
-            {formatCurrency(savingsGoal, user?.currency)}
-          </span>
+          <span>{formatCurrency(actualSavings, user?.currency)}</span>
+          <span>{formatCurrency(savingsGoal, user?.currency)}</span>
         </div>
         <Progress value={progressPercentage} className="h-2" />
       </div>
       <div className="flex justify-between items-baseline">
-        <p className="text-xl font-semibold">
-          {progressPercentage}%
-        </p>
-        <p className="text-xs text-muted-foreground">
-          of monthly goal
-        </p>
+        <p className="text-xl font-semibold">{progressPercentage}%</p>
+        <p className="text-xs text-muted-foreground">of monthly goal</p>
       </div>
     </div>
   );
 }
 
-// Upload Bank Statement Form Component
+// Updated Upload Bank Statement Form Component (Multiple File Support & Auth Token)
 function UploadBankStatementForm() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   
-  // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
+      const token = getAuthToken();
       const response = await fetch('/api/bank-statements/upload', {
         method: 'POST',
         body: formData,
-        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Add header to indicate multiple file upload if more than one file is selected
+          ...(selectedFiles.length > 1 ? { 'x-upload-type': 'multiple' } : {})
+        }
       });
       
       if (!response.ok) {
@@ -399,7 +393,6 @@ function UploadBankStatementForm() {
       setUploading(true);
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
-          // Simulate progress up to 90% (actual completion happens on success)
           if (prev >= 90) {
             clearInterval(progressInterval);
             return 90;
@@ -407,26 +400,21 @@ function UploadBankStatementForm() {
           return prev + 5;
         });
       }, 300);
-      
       return () => clearInterval(progressInterval);
     },
     onSuccess: () => {
       setUploadProgress(100);
-      
       setTimeout(() => {
         setUploading(false);
         setUploadProgress(0);
-        setSelectedFile(null);
+        setSelectedFiles([]);
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
-        
-        // Invalidate queries to refresh data
         queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
         queryClient.invalidateQueries({ queryKey: ['/api/bank-statements'] });
         queryClient.invalidateQueries({ queryKey: ['/api/analytics/income-vs-expenses'] });
         queryClient.invalidateQueries({ queryKey: ['/api/analytics/expenses-by-category'] });
-        
         toast({
           title: "Statement processed",
           description: "Your bank statement has been uploaded and transactions imported.",
@@ -445,28 +433,33 @@ function UploadBankStatementForm() {
   });
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files).filter(file => file.type === "application/pdf");
+      if (files.length === 0) {
+        toast({
+          title: "Invalid file format",
+          description: "Please select only PDF files.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedFiles(files);
     }
   };
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!selectedFile) {
+    if (selectedFiles.length === 0) {
       toast({
         title: "No file selected",
-        description: "Please select a PDF bank statement to upload",
+        description: "Please select at least one PDF bank statement to upload",
         variant: "destructive",
       });
       return;
     }
-    
-    // Create form data
     const formData = new FormData();
-    formData.append('file', selectedFile);
-    
-    // Execute the mutation
+    const fieldName = selectedFiles.length > 1 ? 'statements' : 'statement';
+    selectedFiles.forEach(file => formData.append(fieldName, file));
     uploadMutation.mutate(formData);
   };
   
@@ -481,15 +474,14 @@ function UploadBankStatementForm() {
             <div className="flex flex-col items-center space-y-2">
               <Upload className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium">
-                {selectedFile ? selectedFile.name : "Drag & drop your PDF here"}
+                {selectedFiles.length > 0 ? selectedFiles.map(f => f.name).join(", ") : "Drag & drop your PDF here"}
               </p>
-              <p className="text-xs text-muted-foreground">
-                Supported format: PDF
-              </p>
+              <p className="text-xs text-muted-foreground">Supported format: PDF</p>
               <input 
                 ref={fileInputRef}
                 type="file" 
                 accept=".pdf" 
+                multiple
                 onChange={handleFileChange}
                 className="hidden" 
                 id="bank-statement-upload"
@@ -501,7 +493,7 @@ function UploadBankStatementForm() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
               >
-                Choose File
+                Choose File(s)
               </Button>
             </div>
           </div>
@@ -524,7 +516,7 @@ function UploadBankStatementForm() {
                 type="button" 
                 variant="outline" 
                 size="sm"
-                disabled={!selectedFile || uploading || uploadMutation.isPending}
+                disabled={!selectedFiles.length || uploading || uploadMutation.isPending}
               >
                 Cancel
               </Button>
@@ -533,13 +525,13 @@ function UploadBankStatementForm() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Cancel Upload?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to cancel uploading this bank statement?
+                  Are you sure you want to cancel uploading these bank statements?
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Continue Upload</AlertDialogCancel>
                 <AlertDialogAction onClick={() => {
-                  setSelectedFile(null);
+                  setSelectedFiles([]);
                   if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                   }
@@ -552,7 +544,7 @@ function UploadBankStatementForm() {
           
           <Button 
             type="submit" 
-            disabled={!selectedFile || uploading || uploadMutation.isPending}
+            disabled={!selectedFiles.length || uploading || uploadMutation.isPending}
           >
             {uploadMutation.isPending || uploading ? (
               <>
@@ -580,29 +572,24 @@ export default function Transactions() {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
-  // Check if user is authenticated
   const { data: user, isLoading: userLoading, isError: userError } = useQuery({
     queryKey: ['/api/auth/me'],
   });
 
-  // Get transactions
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
     queryKey: ['/api/transactions'],
     enabled: !!user,
   });
 
-  // Get bank accounts
   const { data: bankAccounts = [], isLoading: accountsLoading } = useQuery<BankAccount[]>({
     queryKey: ['/api/bank-accounts'],
     enabled: !!user,
   });
 
-  // Get categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ['/api/categories'],
   });
 
-  // If authentication failed, redirect to login
   if (userError) {
     toast({
       title: "Authentication required",
@@ -612,47 +599,33 @@ export default function Transactions() {
     return <Redirect to="/login" />;
   }
 
-  // Apply filters to transactions
   const filteredTransactions = transactions.filter(transaction => {
-    // Filter by category
     if (categoryFilter && categoryFilter !== "all-categories" && transaction.category !== categoryFilter) {
       return false;
     }
-    
-    // Filter by bank account
     if (accountFilter !== null && transaction.bankAccountId !== accountFilter) {
       return false;
     }
-    
-    // Filter by transaction type
     if (typeFilter && typeFilter !== "all-types" && transaction.type !== typeFilter) {
       return false;
     }
-    
-    // Filter by search term
     if (searchTerm && !transaction.description.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
-    
-    // Filter by date range
     if (startDate && new Date(transaction.date) < startDate) {
       return false;
     }
-    
     if (endDate && new Date(transaction.date) > endDate) {
       return false;
     }
-    
     return true;
   });
 
-  // Get bank account name by ID
   const getBankName = (bankAccountId: number) => {
     const account = bankAccounts.find(acc => acc.id === bankAccountId);
     return account ? account.name : "Unknown";
   };
 
-  // Main loading state
   if (userLoading || transactionsLoading || accountsLoading || categoriesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -670,87 +643,79 @@ export default function Transactions() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen flex flex-col">
       <Header />
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-grow">
         <div className="lg:col-span-3 xl:col-span-2">
           <Sidebar />
         </div>
-
         <div className="lg:col-span-9 xl:col-span-10 space-y-6">
-      {/* Monthly Salary and Savings Input Card */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Coins className="h-5 w-5 text-primary" />
-            <span>Monthly Income & Savings</span>
-          </CardTitle>
-          <CardDescription>Track your monthly salary and set savings goals</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <MonthlySalaryInput />
-            <SavingsGoalInput />
-            <SavingsTracker />
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* PDF Upload Card */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <span>Statement Upload</span>
-          </CardTitle>
-          <CardDescription>Upload bank statements to automatically import transactions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <UploadBankStatementForm />
-            <div className="bg-muted/50 p-4 rounded-lg border border-border">
-              <h3 className="text-sm font-medium mb-2">Benefits of Statement Upload</h3>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li className="flex items-center gap-2">
-                  <div className="rounded-full bg-green-500/20 p-1">
-                    <TrendingUp className="h-3 w-3 text-green-500" />
-                  </div>
-                  Automatic transaction categorization
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="rounded-full bg-green-500/20 p-1">
-                    <TrendingUp className="h-3 w-3 text-green-500" />
-                  </div>
-                  Personalized spending insights
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="rounded-full bg-green-500/20 p-1">
-                    <TrendingUp className="h-3 w-3 text-green-500" />
-                  </div>
-                  Accurate financial forecasting
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="rounded-full bg-green-500/20 p-1">
-                    <TrendingUp className="h-3 w-3 text-green-500" />
-                  </div>
-                  Secure, encrypted processing
-                </li>
-              </ul>
-              <p className="text-xs text-muted-foreground mt-4">
-                Your data is securely processed and bank statement files are deleted after analysis to protect your privacy.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Transactions List Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Transactions</CardTitle>
-          <CardDescription>View and manage all your financial transactions</CardDescription>
-        </CardHeader>
-        <CardContent>
-              {/* Filters */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Coins className="h-5 w-5 text-primary" />
+                <span>Monthly Income & Savings</span>
+              </CardTitle>
+              <CardDescription>Track your monthly salary and set savings goals</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MonthlySalaryInput />
+                <SavingsGoalInput />
+                <SavingsTracker />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <span>Statement Upload</span>
+              </CardTitle>
+              <CardDescription>Upload bank statements to automatically import transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <UploadBankStatementForm />
+                <div className="bg-muted/50 p-4 rounded-lg border border-border">
+                  <h3 className="text-sm font-medium mb-2">Benefits of Statement Upload</h3>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li className="flex items-center gap-2">
+                      <div className="rounded-full bg-green-500/20 p-1">
+                        <TrendingUp className="h-3 w-3 text-green-500" />
+                      </div>
+                      Automatic transaction categorization
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="rounded-full bg-green-500/20 p-1">
+                        <TrendingUp className="h-3 w-3 text-green-500" />
+                      </div>
+                      Personalized spending insights
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="rounded-full bg-green-500/20 p-1">
+                        <TrendingUp className="h-3 w-3 text-green-500" />
+                      </div>
+                      Accurate financial forecasting
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="rounded-full bg-green-500/20 p-1">
+                        <TrendingUp className="h-3 w-3 text-green-500" />
+                      </div>
+                      Secure, encrypted processing
+                    </li>
+                  </ul>
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Your data is securely processed and bank statement files are deleted after analysis to protect your privacy.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Transactions</CardTitle>
+              <CardDescription>View and manage all your financial transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
               <div className="flex flex-col lg:flex-row gap-4 mb-6">
                 <div className="flex-1 relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -761,7 +726,6 @@ export default function Transactions() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                
                 <div className="flex flex-wrap gap-2">
                   <Popover>
                     <PopoverTrigger asChild>
@@ -773,10 +737,7 @@ export default function Transactions() {
                     <PopoverContent className="w-auto p-0" align="end">
                       <Calendar
                         mode="range"
-                        selected={{
-                          from: startDate,
-                          to: endDate,
-                        }}
+                        selected={{ from: startDate, to: endDate }}
                         onSelect={(range) => {
                           setStartDate(range?.from);
                           setEndDate(range?.to);
@@ -784,26 +745,16 @@ export default function Transactions() {
                         initialFocus
                       />
                       <div className="p-3 border-t flex justify-between">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setStartDate(undefined);
-                            setEndDate(undefined);
-                          }}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setStartDate(undefined);
+                          setEndDate(undefined);
+                        }}>
                           Clear
                         </Button>
-                        <Button 
-                          size="sm"
-                          onClick={() => {}}
-                        >
-                          Apply
-                        </Button>
+                        <Button size="sm" onClick={() => {}}>Apply</Button>
                       </div>
                     </PopoverContent>
                   </Popover>
-
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Category" />
@@ -817,7 +768,6 @@ export default function Transactions() {
                       ))}
                     </SelectContent>
                   </Select>
-
                   <Select 
                     value={accountFilter?.toString() || "all-accounts"} 
                     onValueChange={(val) => setAccountFilter(val === "all-accounts" ? null : parseInt(val))}
@@ -834,7 +784,6 @@ export default function Transactions() {
                       ))}
                     </SelectContent>
                   </Select>
-
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Transaction Type" />
@@ -845,7 +794,6 @@ export default function Transactions() {
                       <SelectItem value="debit">Debit</SelectItem>
                     </SelectContent>
                   </Select>
-
                   <Button 
                     variant="outline" 
                     size="icon"
@@ -862,8 +810,6 @@ export default function Transactions() {
                   </Button>
                 </div>
               </div>
-
-              {/* Transactions Table */}
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
