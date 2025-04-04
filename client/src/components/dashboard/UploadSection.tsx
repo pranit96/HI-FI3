@@ -44,8 +44,8 @@ export default function UploadSection() {
   // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      // Get auth token
-      const token = localStorage.getItem('authToken');
+      // Get auth token -  Using getAuthToken for better practice
+      const token = getAuthToken();
       if (!token) {
         throw new Error('Authentication required');
       }
