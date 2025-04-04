@@ -145,22 +145,31 @@ export default function UploadSection() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFiles = Array.from(e.target.files).filter(file => file.type === "application/pdf");
-      if (selectedFiles.length === 0) {
+    const fileList = e.target.files;
+    if (!fileList) return;
+
+    const selectedFiles = Array.from(fileList).filter(file => file.type === "application/pdf");
+    
+    if (selectedFiles.length === 0) {
+      toast({
+        title: "Invalid file format",
+        description: "Please select only PDF files.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isMultipleUpload) {
+      if (selectedFiles.length > 5) {
         toast({
-          title: "Invalid file format",
-          description: "Please select only PDF files.",
-          variant: "destructive",
+          title: "Too many files",
+          description: "Maximum 5 files allowed. Only first 5 will be processed.",
+          variant: "default",
         });
-        return;
       }
-      if (isMultipleUpload) {
-        const newFiles = [...files, ...selectedFiles].slice(0, 5);
-        setFiles(newFiles);
-      } else {
-        setFiles([selectedFiles[0]]);
-      }
+      setFiles(selectedFiles.slice(0, 5));
+    } else {
+      setFiles([selectedFiles[0]]);
     }
   };
 
