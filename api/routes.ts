@@ -90,7 +90,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      req.session = req.session || {};
+      if (!req.session) {
+        req.session = {};
+      }
       req.session.userId = decoded.id;
       next();
     } catch (error) {
