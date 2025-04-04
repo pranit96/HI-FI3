@@ -1,128 +1,429 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-
 import Header from "@/components/dashboard/Header";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Footer from "@/components/dashboard/Footer";
 import { Redirect } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatCurrency, calculatePercentage } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardFooter,
 } from "@/components/ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { 
+  Calendar as CalendarIcon, 
+  Filter, 
+  Search, 
+  Upload, 
+  FileText, 
+  Loader2,
+  PlusCircle,
+  Save,
+  TrendingUp,
+  Coins,
+  X
+} from "lucide-react";
+import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import {
   AlertDialog,
-  AlertDialogTrigger,
+  AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/hooks/use-auth-simple";
 
-import {
-  CalendarIcon,
-  InfoIcon,
-  LightbulbIcon,
-  PlusCircle,
-  Trash2,
-} from "lucide-react";
-import { format } from "date-fns";
-
-type User = {
+type Transaction = {
   id: number;
-  name: string;
-  email: string;
-  currency: string;
-  monthlySalary: number | null;
+  date: string;
+  description: string;
+  category: string;
+  amount: number;
+  type: string;
+  bankAccountId: number;
 };
 
-type Goal = {
+type BankAccount = {
   id: number;
   name: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline: string | null;
-  description: string | null;
-  isAIGenerated: boolean;
-  status: string;
-  createdAt: string;
+  shortCode: string;
+  color: string;
 };
 
-const formSchema = z.object({
-  name: z.string().min(1, "Goal name is required"),
-  targetAmount: z
-    .string()
-    .min(1, "Target amount is required")
-    .transform((val) => parseFloat(val))
-    .refine((val) => !isNaN(val) && val > 0, {
-      message: "Target amount must be a positive number",
-    }),
-  deadline: z.date().nullable(),
-  description: z.string().nullable(),
-});
+type Category = {
+  id: number;
+  name: string;
+};
 
-// Helper: Always use multiple mode for file uploads.
-// This means the client will always use the field name "statements"
-// and add the header x-upload-type: "multiple", and the backend should be set to use upload.array("statements", 5).
+function MonthlySalaryInput() {
+  const { toast } = useToast();
+  const { data: user } = useQuery({ queryKey: ['/api/auth/me'] });
+  const [salary, setSalary] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
+  
+  useEffect(() => {
+    if (user?.monthlySalary) {
+      setSalary(user.monthlySalary.toString());
+    }
+  }, [user?.monthlySalary]);
+  
+  const updateMutation = useMutation({
+    mutationFn: async (data: { monthlySalary: number }) => {
+      const response = await apiRequest('PATCH', '/api/users/me', data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics/income-vs-expenses'] });
+      toast({
+        title: "Salary updated",
+        description: "Your monthly salary has been updated successfully",
+      });
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update salary: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const handleSave = () => {
+    const salaryValue = parseFloat(salary);
+    if (isNaN(salaryValue) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (salaryValue < 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Salary cannot be negative",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    updateMutation.mutate({ monthlySalary: salaryValue });
+  };
+  
+  return (
+    <div className="p-4 rounded-lg border">
+      <h3 className="text-sm font-semibold mb-2">Monthly Income</h3>
+      {isEditing ? (
+        <div className="space-y-2">
+          <div className="flex">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-2.5 text-muted-foreground">
+                {user?.currency || '₹'}
+              </span>
+              <Input
+                type="number"
+                className="pl-8"
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <Button
+              className="ml-2"
+              size="sm"
+              onClick={handleSave}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              setSalary(user?.monthlySalary?.toString() || '');
+              setIsEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-baseline justify-between">
+            <p className="text-2xl font-bold">
+              {formatCurrency(user?.monthlySalary || 0, user?.currency)}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Your monthly salary is used to calculate savings rate
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SavingsGoalInput() {
+  const { toast } = useToast();
+  const [savingsGoal, setSavingsGoal] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
+  
+  const { data: user } = useQuery({ queryKey: ['/api/auth/me'] });
+  const { data: settings } = useQuery({
+    queryKey: ['/api/settings/savings-goal'],
+    onSuccess: (data) => {
+      if (data?.savingsGoal) {
+        setSavingsGoal(data.savingsGoal.toString());
+      }
+    }
+  });
+  
+  const updateMutation = useMutation({
+    mutationFn: async (data: { savingsGoal: number }) => {
+      const response = await apiRequest('PATCH', '/api/settings/savings-goal', data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/savings-goal'] });
+      toast({
+        title: "Savings goal updated",
+        description: "Your monthly savings goal has been updated",
+      });
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update savings goal: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const handleSave = () => {
+    const goalValue = parseFloat(savingsGoal);
+    if (isNaN(goalValue)) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (goalValue < 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Savings goal cannot be negative",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    updateMutation.mutate({ savingsGoal: goalValue });
+  };
+  
+  return (
+    <div className="p-4 rounded-lg border">
+      <h3 className="text-sm font-semibold mb-2">Monthly Savings Goal</h3>
+      {isEditing ? (
+        <div className="space-y-2">
+          <div className="flex">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-2.5 text-muted-foreground">
+                {user?.currency || '₹'}
+              </span>
+              <Input
+                type="number"
+                className="pl-8"
+                value={savingsGoal}
+                onChange={(e) => setSavingsGoal(e.target.value)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <Button
+              className="ml-2"
+              size="sm"
+              onClick={handleSave}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              setSavingsGoal(settings?.savingsGoal?.toString() || '');
+              setIsEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-baseline justify-between">
+            <p className="text-2xl font-bold">
+              {formatCurrency(settings?.savingsGoal || 0, user?.currency)}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Set a target for your monthly savings
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SavingsTracker() {
+  const { data: user } = useQuery({ queryKey: ['/api/auth/me'] });
+  const { data: settings } = useQuery({ queryKey: ['/api/settings/savings-goal'] });
+  const { data: monthlyData } = useQuery({ queryKey: ['/api/analytics/income-vs-expenses'] });
+  
+  const actualSavings = (monthlyData?.income || 0) - (monthlyData?.expenses || 0);
+  const savingsGoal = settings?.savingsGoal || 0;
+  
+  let progressPercentage = 0;
+  if (savingsGoal > 0 && actualSavings > 0) {
+    progressPercentage = Math.min(Math.round((actualSavings / savingsGoal) * 100), 100);
+  }
+  
+  return (
+    <div className="p-4 rounded-lg border">
+      <h3 className="text-sm font-semibold mb-2">Current Savings Progress</h3>
+      <div className="mb-4">
+        <div className="flex justify-between text-sm mb-1">
+          <span>
+            {formatCurrency(actualSavings, user?.currency)}
+          </span>
+          <span>
+            {formatCurrency(savingsGoal, user?.currency)}
+          </span>
+        </div>
+        <Progress value={progressPercentage} className="h-2" />
+      </div>
+      <div className="flex justify-between items-baseline">
+        <p className="text-xl font-semibold">
+          {progressPercentage}%
+        </p>
+        <p className="text-xs text-muted-foreground">
+          of monthly goal
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function UploadBankStatementForm() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Use an array for selected files even if user selects one.
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files).slice(0, 5); // Limit to 5 files
+      setSelectedFiles(files);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    const newFiles = [...selectedFiles];
+    newFiles.splice(index, 1);
+    setSelectedFiles(newFiles);
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      // Always add the header and use the same field name "statements"
-      const token = localStorage.getItem("auth-token");
-      if (!token) throw new Error("Authentication token missing");
-      const response = await fetch("/api/bank-statements/upload", {
-        method: "POST",
+      const response = await fetch('/api/bank-statements/upload', {
+        method: 'POST',
         body: formData,
+        credentials: 'include',
         headers: {
-          "Authorization": `Bearer ${token}`,
-          "x-upload-type": "multiple",
+          'x-upload-type': 'multiple',
         },
       });
+      
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to upload statement");
+        throw new Error(error.message || 'Failed to upload statements');
       }
+      
       return await response.json();
     },
     onMutate: () => {
@@ -136,6 +437,7 @@ function UploadBankStatementForm() {
           return prev + 5;
         });
       }, 300);
+      
       return () => clearInterval(progressInterval);
     },
     onSuccess: () => {
@@ -144,15 +446,16 @@ function UploadBankStatementForm() {
         setUploading(false);
         setUploadProgress(0);
         setSelectedFiles([]);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/bank-statements"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/analytics/income-vs-expenses"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/analytics/expenses-by-category"] });
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/bank-statements'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/analytics/income-vs-expenses'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/analytics/expenses-by-category'] });
         toast({
-          title: "Statement processed",
-          description:
-            "Your bank statement has been uploaded and transactions imported.",
+          title: "Statements processed",
+          description: "Your bank statements have been uploaded and transactions imported.",
         });
       }, 1000);
     },
@@ -164,82 +467,98 @@ function UploadBankStatementForm() {
         description: (error as Error).message,
         variant: "destructive",
       });
-    },
-  });
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files).filter(
-        (file) => file.type === "application/pdf"
-      );
-      if (files.length === 0) {
-        toast({
-          title: "Invalid file format",
-          description: "Please select only PDF files.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setSelectedFiles(files);
     }
-  };
-
+  });
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (selectedFiles.length === 0) {
       toast({
-        title: "No file selected",
-        description: "Please select at least one PDF bank statement to upload",
+        title: "No files selected",
+        description: "Please select PDF bank statements to upload",
         variant: "destructive",
       });
       return;
     }
+    
     const formData = new FormData();
-    // Always use "statements" as the field name
-    selectedFiles.forEach((file) => formData.append("statements", file));
+    selectedFiles.forEach(file => {
+      formData.append('statements', file);
+    });
+    
     uploadMutation.mutate(formData);
   };
-
+  
   return (
     <div className="p-4 rounded-lg border">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label className="text-sm font-medium block">
-            Upload Bank Statement (PDF)
+            Upload Bank Statements (PDF)
           </label>
           <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg px-6 py-8 text-center hover:border-primary/50 transition-colors">
             <div className="flex flex-col items-center space-y-2">
               <Upload className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium">
-                {selectedFiles.length > 0
-                  ? selectedFiles.map((f) => f.name).join(", ")
-                  : "Drag & drop your PDF here"}
+                {selectedFiles.length > 0 
+                  ? `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} selected` 
+                  : "Drag & drop your PDFs here"}
               </p>
               <p className="text-xs text-muted-foreground">
-                Supported format: PDF
+                Supported format: PDF (up to 5 files)
               </p>
-              <input
+              <input 
                 ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                multiple
+                type="file" 
+                accept=".pdf" 
                 onChange={handleFileChange}
-                className="hidden"
+                className="hidden" 
                 id="bank-statement-upload"
+                multiple
               />
-              <Button
-                type="button"
-                variant="outline"
+              <Button 
+                type="button" 
+                variant="outline" 
                 size="sm"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
               >
-                Choose File(s)
+                Choose Files
               </Button>
             </div>
           </div>
         </div>
 
+        {selectedFiles.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Selected files:</h4>
+            <ul className="space-y-2">
+              {selectedFiles.map((file, index) => (
+                <li key={index} className="flex items-center justify-between p-2 border rounded">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <span className="text-sm truncate max-w-xs">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => removeFile(index)}
+                    disabled={uploading}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
         {uploading && (
           <div className="space-y-2">
             <div className="flex justify-between text-xs">
@@ -249,15 +568,15 @@ function UploadBankStatementForm() {
             <Progress value={uploadProgress} className="h-1" />
           </div>
         )}
-
+        
         <div className="flex justify-between">
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
+              <Button 
+                type="button" 
+                variant="outline" 
                 size="sm"
-                disabled={!selectedFiles.length || uploading || uploadMutation.isPending}
+                disabled={selectedFiles.length === 0 || uploading}
               >
                 Cancel
               </Button>
@@ -266,168 +585,115 @@ function UploadBankStatementForm() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Cancel Upload?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to cancel uploading these bank statements?
+                  Are you sure you want to cancel uploading these statements?
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Continue Upload</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => {
-                    setSelectedFiles([]);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                >
+                <AlertDialogAction onClick={() => {
+                  setSelectedFiles([]);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }}>
                   Cancel Upload
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-
-          <Button
-            type="submit"
-            disabled={!selectedFiles.length || uploading || uploadMutation.isPending}
+          
+          <Button 
+            type="submit" 
+            disabled={selectedFiles.length === 0 || uploading}
           >
             {uploadMutation.isPending || uploading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </>
-            ) : (
-              "Upload & Process"
-            )}
+            ) : "Upload & Process"}
           </Button>
         </div>
-
+        
         <p className="text-xs text-muted-foreground">
-          Your PDF will be securely processed and then permanently deleted to protect your privacy.
+          Your PDFs will be securely processed and then permanently deleted to protect your privacy.
         </p>
       </form>
     </div>
   );
 }
 
-// The rest of your page remains largely the same.
-// For brevity, here is the complete Goals page with the dialog for creating goals and the upload component.
-
-export default function Goals() {
+export default function Transactions() {
   const { toast } = useToast();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all-categories");
+  const [accountFilter, setAccountFilter] = useState<number | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string>("all-types");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
-  const { data: user, isLoading: userLoading, isError: userError } = useQuery<User>({
-    queryKey: ["/api/auth/me"],
+  const { data: user, isLoading: userLoading, isError: userError } = useQuery({
+    queryKey: ['/api/auth/me'],
   });
-  const { data: goals = [], isLoading: goalsLoading } = useQuery<Goal[]>({
-    queryKey: ["/api/goals"],
+
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
+    queryKey: ['/api/transactions'],
     enabled: !!user,
   });
-  const { data: suggestedGoals = [], isLoading: suggestionsLoading } = useQuery<Goal[]>({
-    queryKey: ["/api/goals/suggest"],
-    enabled: false,
+
+  const { data: bankAccounts = [], isLoading: accountsLoading } = useQuery<BankAccount[]>({
+    queryKey: ['/api/bank-accounts'],
+    enabled: !!user,
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      targetAmount: "",
-      deadline: null,
-      description: "",
-    },
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+    queryKey: ['/api/categories'],
   });
-
-  const createGoalMutation = useMutation({
-    mutationFn: async (values: z.infer<typeof formSchema>) => {
-      return apiRequest("POST", "/api/goals", values);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Goal created",
-        description: "Your financial goal has been created successfully.",
-        variant: "success",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
-      setIsAddDialogOpen(false);
-      form.reset();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to create goal",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteGoalMutation = useMutation({
-    mutationFn: async (goalId: number) => {
-      return apiRequest("DELETE", `/api/goals/${goalId}`, {});
-    },
-    onSuccess: () => {
-      toast({
-        title: "Goal deleted",
-        description: "Your financial goal has been deleted successfully.",
-        variant: "success",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to delete goal",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const addSuggestedGoalMutation = useMutation({
-    mutationFn: async (goal: Omit<Goal, "id" | "createdAt">) => {
-      return apiRequest("POST", "/api/goals", goal);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Goal added",
-        description: "The suggested goal has been added to your goals.",
-        variant: "success",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to add goal",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const loadSuggestions = () => {
-    queryClient.refetchQueries({ queryKey: ["/api/goals/suggest"] });
-  };
-
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    createGoalMutation.mutate(values);
-  };
-
-  const handleDeleteGoal = (goalId: number) => {
-    deleteGoalMutation.mutate(goalId);
-  };
-
-  const handleAddSuggestedGoal = (goal: Goal) => {
-    const { id, createdAt, ...goalData } = goal;
-    addSuggestedGoalMutation.mutate(goalData);
-  };
 
   if (userError) {
     toast({
       title: "Authentication required",
-      description: "Please log in to access your financial goals.",
+      description: "Please log in to access your transactions.",
       variant: "destructive",
     });
     return <Redirect to="/login" />;
   }
 
-  if (userLoading || goalsLoading) {
+  const filteredTransactions = transactions.filter(transaction => {
+    if (categoryFilter !== "all-categories" && transaction.category !== categoryFilter) {
+      return false;
+    }
+    
+    if (accountFilter !== null && transaction.bankAccountId !== accountFilter) {
+      return false;
+    }
+    
+    if (typeFilter !== "all-types" && transaction.type !== typeFilter) {
+      return false;
+    }
+    
+    if (searchTerm && !transaction.description.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+    
+    const transactionDate = new Date(transaction.date);
+    if (startDate && transactionDate < startDate) {
+      return false;
+    }
+    
+    if (endDate && transactionDate > endDate) {
+      return false;
+    }
+    
+    return true;
+  });
+
+  const getBankName = (bankAccountId: number) => {
+    const account = bankAccounts.find(acc => acc.id === bankAccountId);
+    return account ? account.name : "Unknown";
+  };
+
+  if (userLoading || transactionsLoading || accountsLoading || categoriesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -435,7 +701,7 @@ export default function Goals() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="mt-2 text-foreground">Loading your goals...</p>
+          <p className="mt-2 text-foreground">Loading transactions...</p>
         </div>
       </div>
     );
@@ -451,206 +717,32 @@ export default function Goals() {
         </div>
 
         <div className="lg:col-span-9 xl:col-span-10 space-y-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold font-heading">Financial Goals</h1>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Add Goal
-            </Button>
-          </div>
-
-          {goals.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <div className="rounded-full bg-primary/10 p-6 mb-4">
-                  <InfoIcon className="h-10 w-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-medium mb-2">No goals yet</h3>
-                <p className="text-muted-foreground text-center max-w-md mb-6">
-                  Setting financial goals is a great way to stay motivated and track your progress.
-                </p>
-                <Button onClick={() => setIsAddDialogOpen(true)}>
-                  Create Your First Goal
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {goals.map((goal) => (
-                <Card key={goal.id} className="transition-all duration-300 hover:translate-y-[-5px] hover:shadow-md">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-base">{goal.name}</CardTitle>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Goal</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete this goal? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteGoal(goal.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {goal.description && (
-                      <p className="text-sm text-muted-foreground mb-3">{goal.description}</p>
-                    )}
-                    <div className="mb-2">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Progress</span>
-                        <span className="font-medium">
-                          {calculatePercentage(goal.currentAmount, goal.targetAmount)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full transition-all duration-1000"
-                          style={{
-                            width: `${calculatePercentage(goal.currentAmount, goal.targetAmount)}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {formatCurrency(goal.currentAmount, user?.currency)} of {formatCurrency(goal.targetAmount, user?.currency)}
-                      </span>
-                      {goal.deadline && (
-                        <span className="text-muted-foreground">
-                          {new Date(goal.deadline).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* Single Dialog used for both Add Goal buttons */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create a New Financial Goal</DialogTitle>
-                <DialogDescription>
-                  Set a clear target to help you save and track your progress.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Goal Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Emergency Fund" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="targetAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Target Amount</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="1" step="any" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="deadline"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Target Date (Optional)</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                className={`w-full pl-3 text-left font-normal ${
-                                  !field.value ? "text-muted-foreground" : ""
-                                }`}
-                              >
-                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value || undefined}
-                              onSelect={field.onChange}
-                              disabled={(date) => date < new Date()}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Add details about your goal..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <DialogFooter>
-                    <Button type="submit" disabled={createGoalMutation.isPending}>
-                      {createGoalMutation.isPending ? "Creating..." : "Create Goal"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-
-          {/* Upload Bank Statement Form */}
+          {/* Monthly Salary and Savings Input Card */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Coins className="h-5 w-5 text-primary" />
+                <span>Monthly Income & Savings</span>
+              </CardTitle>
+              <CardDescription>Track your monthly salary and set savings goals</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MonthlySalaryInput />
+                <SavingsGoalInput />
+                <SavingsTracker />
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* PDF Upload Card */}
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
                 <span>Statement Upload</span>
               </CardTitle>
-              <CardDescription>
-                Upload bank statements to automatically import transactions
-              </CardDescription>
+              <CardDescription>Upload bank statements to automatically import transactions</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -660,25 +752,25 @@ export default function Goals() {
                   <ul className="text-sm text-muted-foreground space-y-1">
                     <li className="flex items-center gap-2">
                       <div className="rounded-full bg-green-500/20 p-1">
-                        <LightbulbIcon className="h-3 w-3 text-green-500" />
+                        <TrendingUp className="h-3 w-3 text-green-500" />
                       </div>
                       Automatic transaction categorization
                     </li>
                     <li className="flex items-center gap-2">
                       <div className="rounded-full bg-green-500/20 p-1">
-                        <LightbulbIcon className="h-3 w-3 text-green-500" />
+                        <TrendingUp className="h-3 w-3 text-green-500" />
                       </div>
                       Personalized spending insights
                     </li>
                     <li className="flex items-center gap-2">
                       <div className="rounded-full bg-green-500/20 p-1">
-                        <LightbulbIcon className="h-3 w-3 text-green-500" />
+                        <TrendingUp className="h-3 w-3 text-green-500" />
                       </div>
                       Accurate financial forecasting
                     </li>
                     <li className="flex items-center gap-2">
                       <div className="rounded-full bg-green-500/20 p-1">
-                        <LightbulbIcon className="h-3 w-3 text-green-500" />
+                        <TrendingUp className="h-3 w-3 text-green-500" />
                       </div>
                       Secure, encrypted processing
                     </li>
@@ -690,9 +782,171 @@ export default function Goals() {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Transactions List Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Transactions</CardTitle>
+              <CardDescription>View and manage all your financial transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="flex flex-col lg:flex-row gap-4 mb-6">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by description..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4" />
+                        <span>Date Range</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="range"
+                        selected={{
+                          from: startDate,
+                          to: endDate,
+                        }}
+                        onSelect={(range) => {
+                          setStartDate(range?.from);
+                          setEndDate(range?.to);
+                        }}
+                        initialFocus
+                      />
+                      <div className="p-3 border-t flex justify-between">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setStartDate(undefined);
+                            setEndDate(undefined);
+                          }}
+                        >
+                          Clear
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => {}}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all-categories">All Categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select 
+                    value={accountFilter?.toString() || "all-accounts"} 
+                    onValueChange={(val) => setAccountFilter(val === "all-accounts" ? null : parseInt(val))}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Bank Account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all-accounts">All Accounts</SelectItem>
+                      {bankAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id.toString()}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Transaction Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all-types">All Types</SelectItem>
+                      <SelectItem value="credit">Credit</SelectItem>
+                      <SelectItem value="debit">Debit</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setCategoryFilter("all-categories");
+                      setAccountFilter(null);
+                      setTypeFilter("all-types");
+                      setStartDate(undefined);
+                      setEndDate(undefined);
+                    }}
+                  >
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Bank</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          No transactions found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredTransactions.map((transaction) => (
+                        <TableRow key={transaction.id}>
+                          <TableCell>{formatDate(transaction.date)}</TableCell>
+                          <TableCell>{transaction.description}</TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-400">
+                              {transaction.category || "Uncategorized"}
+                            </span>
+                          </TableCell>
+                          <TableCell>{getBankName(transaction.bankAccountId)}</TableCell>
+                          <TableCell className={`text-right ${transaction.type === 'credit' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {transaction.type === 'credit' ? '+' : '-'}
+                            {formatCurrency(Math.abs(transaction.amount), user?.currency)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
       <Footer />
     </div>
   );
