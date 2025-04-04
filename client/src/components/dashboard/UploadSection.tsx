@@ -123,8 +123,20 @@ export default function UploadSection() {
       }
 
       if (isMultipleUpload) {
-        const newFiles = [...files, ...validFiles].slice(0, 5);
+        // Ensure no duplicates
+        const uniqueFiles = validFiles.filter(newFile =>
+          !files.some(existingFile => existingFile.name === newFile.name)
+        );
+        const newFiles = [...files, ...uniqueFiles].slice(0, 5);
         setFiles(newFiles);
+
+        if (uniqueFiles.length < validFiles.length) {
+          toast({
+            title: "Duplicate files skipped",
+            description: "Some files were already selected and were skipped.",
+            variant: "default",
+          });
+        }
       } else {
         setFiles([validFiles[0]]);
       }
@@ -160,7 +172,7 @@ export default function UploadSection() {
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (files.length === 0) {
       toast({
         title: "No files selected",
@@ -169,8 +181,29 @@ export default function UploadSection() {
       });
       return;
     }
+
+    if (!selectedBankAccount) {
+      toast({
+        title: "Bank account required",
+        description: "Please select a bank account for the statements.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const formData = new FormData();
     const fieldName = isMultipleUpload ? 'statements' : 'statement';
+
+    // Validate file sizes
+    const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      toast({
+        title: "Files too large",
+        description: `${oversizedFiles.length} file(s) exceed the 10MB limit`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (isMultipleUpload) {
       files.forEach(file => formData.append(fieldName, file));
@@ -179,14 +212,48 @@ export default function UploadSection() {
     }
     formData.append("bankAccountId", selectedBankAccount.toString());
 
-    // Retrieve token and set headers accordingly
-    const token = getAuthToken();
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${token}`,
-      ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {}),
+      'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+      ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {})
     };
 
-    uploadMutation.mutate({ formData, headers });
+    uploadMutation.mutate(
+      { formData, headers },
+      {
+        onError: (error: any) => {
+          const errorMessage = error.response?.data?.error || error.message || "Upload failed";
+          if (error.response?.status === 401) {
+            toast({
+              title: "Authentication error",
+              description: "Please log in again to continue",
+              variant: "destructive"
+            });
+          } else if (error.response?.status === 413) {
+            toast({
+              title: "Files too large",
+              description: "Total upload size exceeds server limit",
+              variant: "destructive"
+            });
+          } else {
+            toast({
+              title: "Upload failed",
+              description: errorMessage,
+              variant: "destructive"
+            });
+          }
+        },
+        onSuccess: (data) => {
+          setFiles([]);
+          toast({
+            title: "Upload successful",
+            description: isMultipleUpload 
+              ? `Successfully processed ${data.processedStatements?.length} statements`
+              : "Statement processed successfully",
+            variant: "success"
+          });
+        }
+      }
+    );
   };
 
   if (accountsLoading || statementsLoading) {
