@@ -638,36 +638,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create goal
-  app.post("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = req.session.userId!;
-      if (!userId) {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-
-      // Validate numeric fields
-      const { targetAmount, currentAmount = 0 } = req.body;
-      if (!targetAmount || isNaN(parseFloat(targetAmount))) {
-        return res.status(400).json({ message: "Invalid target amount" });
-      }
-
-      const goal = await storage.createGoal({ 
-        ...req.body,
-        userId,
-        targetAmount: parseFloat(targetAmount),
-        currentAmount: parseFloat(currentAmount) || 0
-      });
-      res.status(201).json(goal);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const validationError = new ValidationError(error);
-        return res.status(400).json({ message: validationError.message });
-      }
-      console.error("Create goal error:", error);
-      res.status(500).json({ message: "Server error" });
+ app.post("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.userId!;
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
     }
-  });
+
+    // Validate and parse the request body using Zod
+    const parsedBody = createGoalSchema.parse(req.body);
+
+    const goal = await storage.createGoal({ 
+      ...parsedBody,
+      userId, // Ensure userId comes from the session
+    });
+    
+    res.status(201).json(goal);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: error.errors[0].message });
+    }
+    console.error("Create goal error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
   // Update goal
   app.patch("/api/goals/:id", isAuthenticated, async (req: Request, res: Response) => {
