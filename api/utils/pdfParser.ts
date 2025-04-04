@@ -39,13 +39,21 @@ interface ParsedBankStatement {
 function detectBankType(content: string): BankType {
   const contentLower = content.toLowerCase();
   
+  // Primary detection via bank name
   if (contentLower.includes('hdfc bank') || contentLower.includes('hdfc statement')) {
     return BankType.HDFC;
   } else if (contentLower.includes('icici bank') || contentLower.includes('icici statement')) {
     return BankType.ICICI;
   }
   
-  // If no match, try to guess based on format patterns
+  // Secondary detection via column headers
+  if (contentLower.match(/txn date.*value date.*description.*chq.*ref.*debit.*credit/i)) {
+    return BankType.HDFC;
+  } else if (contentLower.match(/date.*narration.*chq.*ref.*withdrawal.*deposit.*balance/i)) {
+    return BankType.ICICI;
+  }
+  
+  // Tertiary detection via transaction format
   if (contentLower.includes('date description') && contentLower.includes('withdrawal amt')) {
     return BankType.HDFC;
   } else if (contentLower.includes('transaction date') && contentLower.includes('withdrawal amount')) {
@@ -210,7 +218,12 @@ function parseHDFCStatement(content: string, userId: number, bankAccountId: numb
         
         // Extract transaction details
         // Format: Date Description Withdrawal Credit Balance
-        const debitMatch = line.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})(.+?)(\d+\.\d{2})\s+(?:\s+|-)(\d+\.\d{2})$/);
+        // Helper function for amount parsing
+  const parseAmount = (amount: string): number => {
+    return parseFloat(amount.replace(/,/g, ''));
+  };
+  
+  const debitMatch = line.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})(.+?)([\d,]+\.\d{2})\s+(?:\s+|-)([\d,]+\.\d{2})$/);
         const creditMatch = line.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})(.+?)\s+(\d+\.\d{2})\s+(\d+\.\d{2})$/);
         
         if (debitMatch) {
