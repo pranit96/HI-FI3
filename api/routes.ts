@@ -405,10 +405,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload bank statement
-  app.post(
-    "/api/bank-statements/upload",
-    isAuthenticated,
-    async (req: Request, res: Response, next: Function) => {
+app.post(
+  "/api/bank-statements/upload",
+  isAuthenticated, // Moved authentication check here
+  upload.single("file"),
+  async (req: Request, res: Response) => {
       const userId = req.session.userId;
       if (!userId) {
         return res.status(401).json({ message: "Not authenticated" });
@@ -637,32 +638,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
-
- app.post("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
+// In routes.ts - Updated Goal Creation Endpoint
+app.post("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const userId = req.session.userId!;
-    if (!userId) {
-      return res.status(401).json({ message: "Not authenticated" });
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
+    // Enhanced validation with proper error messages
+    const parsedBody = insertGoalSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: parsedBody.error.flatten()
+      });
     }
 
-    // Validate and parse the request body using Zod
-    const parsedBody = createGoalSchema.parse(req.body);
+    // Ensure currentAmount doesn't exceed targetAmount
+    if (parsedBody.data.currentAmount > parsedBody.data.targetAmount) {
+      return res.status(400).json({
+        message: "Current amount cannot exceed target amount"
+      });
+    }
+
+    // Calculate progress percentage
+    const progress = Math.round(
+      (parsedBody.data.currentAmount / parsedBody.data.targetAmount) * 100
+    );
 
     const goal = await storage.createGoal({ 
-      ...parsedBody,
-      userId, // Ensure userId comes from the session
+      ...parsedBody.data,
+      progress,
+      userId
     });
     
     res.status(201).json(goal);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: error.errors[0].message });
-    }
     console.error("Create goal error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ 
+      message: "Server error",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 });
-
   // Update goal
   app.patch("/api/goals/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
