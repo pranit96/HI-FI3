@@ -266,7 +266,7 @@ export default function Goals() {
                     Add Goal
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="z-50">
                   <DialogHeader>
                     <DialogTitle>Create a New Financial Goal</DialogTitle>
                     <DialogDescription>
@@ -461,7 +461,7 @@ export default function Goals() {
                   <DialogTrigger asChild>
                     <Button>Create Your First Goal</Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="z-50">
                     <DialogHeader>
                       <DialogTitle>Create a New Financial Goal</DialogTitle>
                       <DialogDescription>
