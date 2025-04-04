@@ -411,20 +411,19 @@ function UploadBankStatementForm() {
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
+      const token = await getAccessToken(); // Get the current auth token
       const response = await fetch('/api/bank-statements/upload', {
         method: 'POST',
         body: formData,
-        credentials: 'include',
         headers: {
           'x-upload-type': 'multiple',
+          'Authorization': `Bearer ${token}`, // Add authorization header
         },
       });
-      
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Failed to upload statements');
       }
-      
       return await response.json();
     },
     onMutate: () => {
