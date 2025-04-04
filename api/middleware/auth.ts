@@ -15,7 +15,8 @@ export interface AuthenticatedRequest extends NextApiRequest {
 export const withAuth = (handler: (req: AuthenticatedRequest, res: NextApiResponse) => Promise<any>) => {
   return async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
-      const token = req.cookies?.token;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : req.cookies?.token;
 
       if (!token) {
         return res.status(401).json({ error: 'Authentication required' });

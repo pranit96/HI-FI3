@@ -50,15 +50,20 @@ export default function UploadSection() {
         body: formData,
         credentials: 'include',
         headers: {
-          ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {})
+          ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {}),
+          // Add authentication header here.  Replace 'getAuthToken' with your actual auth token retrieval method.
+          'Authorization': `Bearer ${getAuthToken()}` 
         }
       });
-      
+
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Unauthorized: Please login to upload statements.");
+        }
         const errorData = await response.json();
         throw new Error(errorData.message || "Upload failed");
       }
-      
+
       return await response.json();
     },
     onSuccess: (data) => {
@@ -76,10 +81,10 @@ export default function UploadSection() {
           variant: "success",
         });
       }
-      
+
       // Clear files after successful upload
       setFiles([]);
-      
+
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/bank-statements'] });
       queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
@@ -106,11 +111,11 @@ export default function UploadSection() {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files);
       const validFiles = droppedFiles.filter(file => file.type === "application/pdf");
-      
+
       if (validFiles.length === 0) {
         toast({
           title: "Invalid file format",
@@ -119,7 +124,7 @@ export default function UploadSection() {
         });
         return;
       }
-      
+
       if (validFiles.length !== droppedFiles.length) {
         toast({
           title: "Some files skipped",
@@ -128,7 +133,7 @@ export default function UploadSection() {
           variant: "default",
         });
       }
-      
+
       if (isMultipleUpload) {
         // In multiple upload mode, add to existing files (up to 5 max)
         const newFiles = [...files, ...validFiles].slice(0, 5);
@@ -143,7 +148,6 @@ export default function UploadSection() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selectedFiles = Array.from(e.target.files).filter(file => file.type === "application/pdf");
-      
       if (selectedFiles.length === 0) {
         toast({
           title: "Invalid file format",
@@ -152,13 +156,10 @@ export default function UploadSection() {
         });
         return;
       }
-      
       if (isMultipleUpload) {
-        // In multiple upload mode, add to existing files (up to 5 max)
         const newFiles = [...files, ...selectedFiles].slice(0, 5);
         setFiles(newFiles);
       } else {
-        // In single upload mode, just take the first file
         setFiles([selectedFiles[0]]);
       }
     }
@@ -184,20 +185,10 @@ export default function UploadSection() {
     }
 
     const formData = new FormData();
-    
-    if (isMultipleUpload) {
-      // For multiple file upload
-      files.forEach((file) => {
-        formData.append('statements', file);
-      });
-    } else {
-      // For single file upload (backwards compatibility)
-      formData.append('statement', files[0]);
-    }
-    
-    // Add bank account ID
+    files.forEach((file) => {
+      formData.append('statements', file);
+    });
     formData.append("bankAccountId", selectedBankAccount.toString());
-    
     uploadMutation.mutate(formData);
   };
 
@@ -252,7 +243,7 @@ export default function UploadSection() {
             </Label>
           </div>
         </div>
-        
+
         {/* Upload area */}
         <div
           className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
@@ -379,7 +370,7 @@ export default function UploadSection() {
             </Button>
           </div>
         )}
-        
+
         {/* Recent uploads */}
         <div className="mt-4">
           <h3 className="text-sm font-medium mb-2">Recent Uploads</h3>
@@ -412,4 +403,10 @@ export default function UploadSection() {
       </CardContent>
     </Card>
   );
+}
+
+// Placeholder - Replace with your actual authentication token retrieval function
+function getAuthToken(): string {
+  //  Logic to retrieve the authentication token from local storage, cookies, etc.
+  return localStorage.getItem('authToken') || '';
 }
