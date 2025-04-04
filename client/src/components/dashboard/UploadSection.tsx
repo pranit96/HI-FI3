@@ -43,7 +43,7 @@ export default function UploadSection() {
 
   // Upload mutation
   const uploadMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
+    mutationFn: async ({ formData, headers }: { formData: FormData, headers: Record<string, string> }) => {
       // Get auth token -  Using getAuthToken for better practice
       const token = getAuthToken();
       if (!token) {
@@ -55,7 +55,7 @@ export default function UploadSection() {
         body: formData,
         headers: {
           'Authorization': `Bearer ${token}`,
-          ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {}),
+          ...headers
         }
       });
 
@@ -194,7 +194,7 @@ export default function UploadSection() {
     }
     formData.append("bankAccountId", selectedBankAccount.toString());
 
-    uploadMutation.mutate(formData);
+    uploadMutation.mutate({formData, headers: isMultipleUpload ? { 'x-upload-type': 'multiple' } : {}});
   };
 
   // Loading state
