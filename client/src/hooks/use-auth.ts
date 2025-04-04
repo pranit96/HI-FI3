@@ -151,17 +151,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await fetch("/api/auth/logout", {
         method: "POST",
-        credentials: "include"
+        credentials: "include",
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
-      }
-
+      // Clear local storage
+      localStorage.removeItem('authToken');
+      
       // Reset query cache
       queryClient.setQueryData(['/api/auth/me'], null);
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+
+      // Force clear authentication state
+      queryClient.clear();
 
       toast({
         title: "Logged out",
