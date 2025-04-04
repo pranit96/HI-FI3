@@ -1,168 +1,143 @@
+// src/hooks/use-auth.ts
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+import { apiRequest } from '@/lib/queryClient';
 
-import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
-import { useLocation } from 'wouter';
-
-interface User {
-  id: number;
+type User = {
+  id: string;
   email: string;
   name: string;
-}
+  isVerified: boolean;
+};
 
-interface LoginCredentials {
-  email: string;
-  password: string;
-}
+type AuthState = {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+};
 
-interface RegisterCredentials extends LoginCredentials {
-  name: string;
-}
+export const useAuth = () => {
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    loading: true,
+    error: null,
+  });
+  const navigate = useNavigate();
 
-export function useAuth() {
-  const [isLoading, setIsLoading] = useState(false);
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [, navigate] = useLocation();
+  // Add getAccessToken function
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const refreshToken = localStorage.getItem('refreshToken');
 
-  const { data: user, isLoading: isLoadingUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: async () => {
-      try {
-        const token = localStorage.getItem('auth-token');
-        if (!token) return null;
+      if (!token) return null;
 
-        const response = await fetch('/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          localStorage.removeItem('auth-token');
+      // Check token expiration
+      const decoded = jwtDecode<{ exp: number }>(token);
+      if (decoded.exp * 1000 < Date.now()) {
+        if (!refreshToken) {
+          logout();
           return null;
         }
+        
+        // Refresh token if expired
+        const newToken = await refreshToken(refreshToken);
+        return newToken;
+      }
 
-        return response.json();
+      return token;
+    } catch (error) {
+      console.error('Error getting access token:', error);
+      return null;
+    }
+  }, []);
+
+  const refreshToken = useCallback(async (refreshToken: string): Promise<string> => {
+    try {
+      const response = await apiRequest('POST', '/auth/refresh', {
+        refreshToken,
+      });
+
+      const { accessToken, expiresIn } = await response.json();
+      localStorage.setItem('accessToken', accessToken);
+      
+      return accessToken;
+    } catch (error) {
+      logout();
+      throw new Error('Session expired. Please log in again.');
+    }
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const response = await apiRequest('POST', '/auth/login', {
+        email,
+        password,
+      });
+
+      const { accessToken, refreshToken, user } = await response.json();
+      
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      
+      setAuthState({
+        user,
+        loading: false,
+        error: null,
+      });
+      
+      return user;
+    } catch (error) {
+      setAuthState(prev => ({
+        ...prev,
+        error: 'Invalid email or password',
+      }));
+      throw error;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    setAuthState({
+      user: null,
+      loading: false,
+      error: null,
+    });
+    navigate('/login');
+  }, [navigate]);
+
+  // Initialize auth state
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          logout();
+          return;
+        }
+
+        const response = await apiRequest('GET', '/auth/me');
+        const user = await response.json();
+        
+        setAuthState({
+          user,
+          loading: false,
+          error: null,
+        });
       } catch (error) {
-        localStorage.removeItem('auth-token');
-        return null;
+        logout();
       }
-    }
-  });
+    };
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    try {
-      setIsLoading(true);
-
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Login failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('auth-token', data.token);
-
-      await queryClient.setQueryData(['currentUser'], data.user);
-      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-
-      toast({
-        title: 'Success',
-        description: 'Logged in successfully',
-        variant: 'success',
-      });
-
-      navigate('/dashboard');
-      return data.user;
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [queryClient, toast, navigate]);
-
-  const register = useCallback(async (credentials: RegisterCredentials) => {
-    try {
-      setIsLoading(true);
-
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Registration failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('auth-token', data.token);
-
-      await queryClient.setQueryData(['currentUser'], data.user);
-      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-
-      toast({
-        title: 'Success',
-        description: 'Account created successfully',
-        variant: 'success',
-      });
-
-      navigate('/dashboard');
-      return data.user;
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [queryClient, toast, navigate]);
-
-  const logout = useCallback(async () => {
-    try {
-      localStorage.removeItem('auth-token');
-      queryClient.setQueryData(['currentUser'], null);
-      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-
-      toast({
-        title: 'Success',
-        description: 'Logged out successfully',
-        variant: 'success',
-      });
-
-      navigate('/login');
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    }
-  }, [queryClient, toast, navigate]);
+    initializeAuth();
+  }, [getAccessToken, logout]);
 
   return {
-    user,
-    isLoading: isLoading || isLoadingUser,
-    isAuthenticated: !!user,
+    ...authState,
+    getAccessToken, // Expose the function
     login,
-    register,
-    logout
+    logout,
   };
-}
+};
