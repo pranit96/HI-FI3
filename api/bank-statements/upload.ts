@@ -80,6 +80,12 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
         return res.status(400).json({ error: 'No files uploaded' });
       }
 
+      //Additional security checks for multiple files
+      const invalidFiles = req.files.filter(file => file.mimetype !== 'application/pdf' || file.size > 10 * 1024 * 1024);
+      if(invalidFiles.length > 0){
+        return res.status(400).json({ error: 'Invalid file format or size in multiple uploads. Only PDFs under 10MB are allowed.'});
+      }
+
       // Track files for cleanup
       uploadedFiles.push(...req.files);
     } else {
@@ -89,6 +95,20 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
       // Access file from req.file
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      //Additional security checks for single file
+      const contentType = req.headers['content-type'];
+      if (!contentType?.includes('multipart/form-data')) {
+        return res.status(400).json({ error: 'Invalid content type' });
+      }
+
+      if (req.file.mimetype !== 'application/pdf') {
+        return res.status(400).json({ error: 'Invalid file format. Only PDFs are allowed.' });
+      }
+
+      if (req.file.size > 10 * 1024 * 1024) {
+        return res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
       }
 
       // Track file for cleanup

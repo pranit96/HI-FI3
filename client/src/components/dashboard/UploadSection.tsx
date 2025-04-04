@@ -44,22 +44,23 @@ export default function UploadSection() {
   // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      // Use fetch directly to properly handle FormData with files
-      const response = await fetch("/api/bank-statements/upload", {
-        method: "POST",
+      // Get auth token
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch('/api/bank-statements/upload', {
+        method: 'POST',
         body: formData,
         credentials: 'include',
         headers: {
+          'Authorization': `Bearer ${token}`,
           ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {}),
-          // Add authentication header here.  Replace 'getAuthToken' with your actual auth token retrieval method.
-          'Authorization': `Bearer ${getAuthToken()}` 
         }
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Unauthorized: Please login to upload statements.");
-        }
         const errorData = await response.json();
         throw new Error(errorData.message || "Upload failed");
       }

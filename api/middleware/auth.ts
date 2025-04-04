@@ -15,11 +15,24 @@ export interface AuthenticatedRequest extends NextApiRequest {
 export const withAuth = (handler: (req: AuthenticatedRequest, res: NextApiResponse) => Promise<any>) => {
   return async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
+      // Support both header and cookie auth
       const authHeader = req.headers.authorization;
       const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : req.cookies?.token;
 
       if (!token) {
         return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Add rate limiting for file uploads
+      if (req.url?.includes('/upload')) {
+        const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        const uploadKey = `upload:${userIp}`;
+        const uploadCount = await storage.getRateLimit(uploadKey);
+        
+        if (uploadCount > 10) { // 10 uploads per hour
+          return res.status(429).json({ error: 'Too many upload attempts' });
+        }
+        await storage.incrementRateLimit(uploadKey, 3600); // 1 hour expiry
       }
 
       const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
