@@ -660,9 +660,20 @@ app.post("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
       });
     }
 
+    // Ensure numeric fields are properly parsed
+    const targetAmount = parseFloat(parsedBody.data.targetAmount);
+    const currentAmount = parseFloat(parsedBody.data.currentAmount || 0);
+    
+    if (isNaN(targetAmount)) {
+      return res.status(400).json({
+        message: "Invalid target amount"
+      });
+    }
+
     // Calculate progress percentage
     const progress = Math.round(
-      (parsedBody.data.currentAmount / parsedBody.data.targetAmount) * 100
+      (currentAmount / targetAmount) * 100
+    );
     );
 
     const goal = await storage.createGoal({ 

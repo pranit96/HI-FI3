@@ -74,23 +74,23 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     if (isMultipleFiles) {
       // Process multiple file uploads
       await runMiddleware(req, res, upload.array('statements', 5));
-      
+
       // Access files from req.files
       if (!Array.isArray(req.files) || req.files.length === 0) {
         return res.status(400).json({ error: 'No files uploaded' });
       }
-      
+
       // Track files for cleanup
       uploadedFiles.push(...req.files);
     } else {
       // Process single file upload for backward compatibility
       await runMiddleware(req, res, upload.single('statement'));
-      
+
       // Access file from req.file
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
-      
+
       // Track file for cleanup
       uploadedFiles.push(req.file);
     }
@@ -110,7 +110,7 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     // Process multiple files
     if (isMultipleFiles && Array.isArray(req.files)) {
       const filePaths = req.files.map(file => file.path);
-      
+
       // Parse multiple bank statements in parallel
       const parseResults = await parseMultipleBankStatements(
         filePaths,
