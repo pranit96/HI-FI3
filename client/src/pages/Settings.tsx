@@ -826,7 +826,9 @@ export default function Settings() {
             </Select>
           </div>
 
-          <div className="flex items-center justify-between">
+          import { Label } from "@/components/ui/label";
+      
+      <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>High Contrast</Label>
               <p className="text-sm text-muted-foreground">Increase contrast for better visibility</p>
