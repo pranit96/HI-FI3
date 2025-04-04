@@ -3,7 +3,7 @@ import multer from 'multer';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { storage } from '../storage';
-import { parseBankStatement, parseMultipleBankStatements, ParseResult } from '../utils/pdfParser';
+import { parseBankStatement, parseMultipleBankStatements } from '../utils/pdfParser';
 import { categorizeTransactions } from '../utils/groqAI';
 import { withAuth, AuthenticatedRequest } from '../middleware/auth';
 import crypto from 'crypto';
@@ -61,6 +61,11 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Verify user is authenticated
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   // Array to track uploaded files to ensure cleanup
   const uploadedFiles: Express.Multer.File[] = [];
 
@@ -80,16 +85,10 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
         return res.status(400).json({ error: 'No files uploaded' });
       }
 
-      //Additional security checks for multiple files
-      const invalidFiles = req.files.filter(file => file.mimetype !== 'application/pdf' || file.size > 10 * 1024 * 1024);
-      if(invalidFiles.length > 0){
-        return res.status(400).json({ error: 'Invalid file format or size in multiple uploads. Only PDFs under 10MB are allowed.'});
-      }
-
       // Track files for cleanup
       uploadedFiles.push(...req.files);
     } else {
-      // Process single file upload for backward compatibility
+      // Process single file upload
       await runMiddleware(req, res, upload.single('statement'));
 
       // Access file from req.file
@@ -97,36 +96,41 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      //Additional security checks for single file
-      const contentType = req.headers['content-type'];
-      if (!contentType?.includes('multipart/form-data')) {
-        return res.status(400).json({ error: 'Invalid content type' });
-      }
-
-      if (req.file.mimetype !== 'application/pdf') {
-        return res.status(400).json({ error: 'Invalid file format. Only PDFs are allowed.' });
-      }
-
-      if (req.file.size > 10 * 1024 * 1024) {
-        return res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
-      }
-
       // Track file for cleanup
       uploadedFiles.push(req.file);
     }
 
-    // Get bank account ID from request
-    const bankAccountId = parseInt(req.body.bankAccountId);
+    // Get bank account ID from request - handle both JSON and form data
+    let bankAccountId: number;
+    
+    if (typeof req.body === 'string') {
+      try {
+        const parsedBody = JSON.parse(req.body);
+        bankAccountId = parseInt(parsedBody.bankAccountId);
+      } catch (e) {
+        // If parsing fails, try to get it directly from the body
+        bankAccountId = parseInt(req.body.bankAccountId);
+      }
+    } else {
+      bankAccountId = parseInt(req.body.bankAccountId);
+    }
+
     if (isNaN(bankAccountId)) {
       return res.status(400).json({ error: 'Invalid bank account ID' });
     }
 
     // Verify bank account belongs to user
     const bankAccount = await storage.getBankAccount(bankAccountId);
-    if (!bankAccount || bankAccount.userId !== req.user?.id) {
+    if (!bankAccount) {
+      return res.status(404).json({ error: 'Bank account not found' });
+    }
+    
+    if (bankAccount.userId !== req.user.id) {
       return res.status(403).json({ error: 'Unauthorized access to this bank account' });
     }
 
+    // Rest of the processing code remains the same...
+    
     // Process multiple files
     if (isMultipleFiles && Array.isArray(req.files)) {
       const filePaths = req.files.map(file => file.path);
