@@ -43,17 +43,11 @@ export default function UploadSection() {
 
   // Upload mutation
   const uploadMutation = useMutation({
-    mutationFn: async ({ formData, headers }: { formData: FormData, headers: Record<string, string> }) => {
-      try {
-        const token = getAuthToken();
-        throw new Error('Authentication required');
-      }
-
+    mutationFn: async ({ formData, headers }: { formData: FormData; headers: Record<string, string> }) => {
       const response = await fetch('/api/bank-statements/upload', {
         method: 'POST',
         body: formData,
         headers: {
-          'Authorization': `Bearer ${token}`,
           ...headers
         }
       });
@@ -66,7 +60,6 @@ export default function UploadSection() {
       return await response.json();
     },
     onSuccess: (data) => {
-      // Display appropriate message for single or multiple uploads
       if (isMultipleUpload && data.processedStatements) {
         toast({
           title: "Multiple statements uploaded",
@@ -81,15 +74,12 @@ export default function UploadSection() {
         });
       }
 
-      // Clear files after successful upload
       setFiles([]);
-
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/bank-statements'] });
       queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/insights'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Upload failed",
         description: error.message || "Failed to upload bank statement. Please try again.",
@@ -128,17 +118,14 @@ export default function UploadSection() {
         toast({
           title: "Some files skipped",
           description: "Only PDF files were added. Non-PDF files were skipped.",
-          // Use default variant since "warning" is not available in the toast variants
           variant: "default",
         });
       }
 
       if (isMultipleUpload) {
-        // In multiple upload mode, add to existing files (up to 5 max)
         const newFiles = [...files, ...validFiles].slice(0, 5);
         setFiles(newFiles);
       } else {
-        // In single upload mode, just take the first valid file
         setFiles([validFiles[0]]);
       }
     }
@@ -149,7 +136,7 @@ export default function UploadSection() {
     if (!fileList) return;
 
     const selectedFiles = Array.from(fileList).filter(file => file.type === "application/pdf");
-    
+
     if (selectedFiles.length === 0) {
       toast({
         title: "Invalid file format",
@@ -182,37 +169,26 @@ export default function UploadSection() {
       });
       return;
     }
-
-    if (!selectedBankAccount) {
-      toast({
-        title: "No bank account selected",
-        description: "Please select a bank account for this statement.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const formData = new FormData();
     const fieldName = isMultipleUpload ? 'statements' : 'statement';
-    
+
     if (isMultipleUpload) {
-      files.forEach((file) => {
-        formData.append(fieldName, file);
-      });
+      files.forEach(file => formData.append(fieldName, file));
     } else {
       formData.append(fieldName, files[0]);
     }
     formData.append("bankAccountId", selectedBankAccount.toString());
 
-    const headers = {
+    // Retrieve token and set headers accordingly
+    const token = getAuthToken();
+    const headers: Record<string, string> = {
       'Authorization': `Bearer ${token}`,
-      ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {})
+      ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {}),
     };
 
-    uploadMutation.mutate({formData, headers});
+    uploadMutation.mutate({ formData, headers });
   };
 
-  // Loading state
   if (accountsLoading || statementsLoading) {
     return (
       <Card className="h-full">
@@ -226,7 +202,6 @@ export default function UploadSection() {
     );
   }
 
-  // If there are no bank accounts, show message to add one
   if (bankAccounts.length === 0) {
     return (
       <Card className="h-full">
@@ -243,7 +218,6 @@ export default function UploadSection() {
     );
   }
 
-  // Get recent statements (limit to 2)
   const recentStatements = bankStatements.slice(0, 2);
 
   return (
@@ -252,7 +226,7 @@ export default function UploadSection() {
         <div className="flex justify-between items-center mb-4">
           <CardTitle className="text-lg font-medium">Upload Bank Statement</CardTitle>
           <div className="flex items-center">
-            <Switch 
+            <Switch
               id="multi-upload-switch"
               checked={isMultipleUpload}
               onCheckedChange={setIsMultipleUpload}
@@ -264,7 +238,6 @@ export default function UploadSection() {
           </div>
         </div>
 
-        {/* Upload area */}
         <div
           className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
             isDragging
@@ -319,7 +292,6 @@ export default function UploadSection() {
           )}
         </div>
 
-        {/* Selected files list for multiple upload */}
         {isMultipleUpload && files.length > 1 && (
           <div className="mt-3 max-h-32 overflow-y-auto border rounded-md p-2">
             {files.map((file, index) => (
@@ -349,7 +321,6 @@ export default function UploadSection() {
           </div>
         )}
 
-        {/* Bank account selection for uploads */}
         {files.length > 0 && (
           <div className="mt-4">
             <label className="text-sm font-medium mb-1 block">Select Bank Account</label>
@@ -371,16 +342,32 @@ export default function UploadSection() {
               ))}
             </div>
 
-            <Button 
-              className="w-full mt-4" 
+            <Button
+              className="w-full mt-4"
               onClick={handleUpload}
               disabled={uploadMutation.isPending}
             >
               {uploadMutation.isPending ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Uploading...
                 </>
@@ -391,7 +378,6 @@ export default function UploadSection() {
           </div>
         )}
 
-        {/* Recent uploads */}
         <div className="mt-4">
           <h3 className="text-sm font-medium mb-2">Recent Uploads</h3>
           {recentStatements.length === 0 ? (
@@ -427,10 +413,9 @@ export default function UploadSection() {
 
 // Improved getAuthToken function
 function getAuthToken(): string {
-  const token = localStorage.getItem('auth-token'); // Match the key used in auth hooks
+  const token = localStorage.getItem('auth-token'); // Ensure this key matches your authentication setup
   if (!token) {
     throw new Error('No authentication token found');
   }
   return token;
-}
 }
