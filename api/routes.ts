@@ -671,10 +671,7 @@ app.post("/api/goals", isAuthenticated, async (req: Request, res: Response) => {
     }
 
     // Calculate progress percentage
-    const progress = Math.round(
-      (currentAmount / targetAmount) * 100
-    );
-    );
+    const progress = Math.round((currentAmount / targetAmount) * 100);
 
     const goal = await storage.createGoal({ 
       ...parsedBody.data,
