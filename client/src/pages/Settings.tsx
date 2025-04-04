@@ -814,7 +814,7 @@ export default function Settings() {
               <Label>Text Size</Label>
               <p className="text-sm text-muted-foreground">Adjust the size of text throughout the app</p>
             </div>
-            <Select>
+            <Select onValueChange={(value) => updateAccessibilitySettings({ textSize: value })}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Normal" />
               </SelectTrigger>
