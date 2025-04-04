@@ -7,6 +7,8 @@ import { Redirect } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth-simple";
+
 
 import {
   Table,
@@ -390,6 +392,7 @@ function SavingsTracker() {
 }
 
 function UploadBankStatementForm() {
+   const { getAccessToken } = useAuth(); // Add this line
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -409,9 +412,10 @@ function UploadBankStatementForm() {
     setSelectedFiles(newFiles);
   };
 
-  const uploadMutation = useMutation({
+   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const token = await getAccessToken(); // Get the current auth token
+      const token = await getAccessToken();
+      
       const response = await fetch('/api/bank-statements/upload', {
         method: 'POST',
         body: formData,
