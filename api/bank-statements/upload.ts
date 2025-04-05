@@ -248,13 +248,15 @@ const handler = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     });
   } finally {
     // Clean up all uploaded files
-    for (const file of uploadedFiles) {
-      try {
-        await fs.unlink(file.path);
-      } catch (err) {
-        console.error(`Error deleting temporary file ${file.path}:`, err);
-      }
-    }
+    await Promise.all(
+      uploadedFiles.map(async (file) => {
+        try {
+          await fs.unlink(file.path).catch(() => {});
+        } catch (err) {
+          console.error(`Error deleting temporary file ${file.path}:`, err);
+        }
+      })
+    );
   }
 };
 

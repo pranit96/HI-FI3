@@ -214,8 +214,10 @@ export default function UploadSection() {
 
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+      'x-auth-token': localStorage.getItem('auth-token') || '',
       ...(isMultipleUpload ? { 'x-upload-type': 'multiple' } : {})
     };
+    
 
     uploadMutation.mutate(
       { formData, headers },

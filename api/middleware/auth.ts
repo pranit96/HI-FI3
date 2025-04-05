@@ -16,13 +16,13 @@ export const withAuth = (handler: (req: AuthenticatedRequest, res: NextApiRespon
   return async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
       // Support both header and cookie auth
-      let token = req.cookies?.token;
-      
-      // Check Authorization header if no cookie token
-      const authHeader = req.headers.authorization;
-      if (!token && authHeader?.startsWith('Bearer ')) {
-        token = authHeader.substring(7);
-      }
+      let token = req.cookies?.token || req.headers['x-auth-token'];
+
+// Also check Authorization header
+const authHeader = req.headers.authorization;
+if (!token && authHeader?.startsWith('Bearer ')) {
+  token = authHeader.substring(7);
+}
 
       if (!token) {
         return res.status(401).json({ error: 'Authentication required' });
